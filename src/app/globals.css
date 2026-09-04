@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FAFAF7;
+  --foreground: #0E0E0C;
+  --card: #FAFAF7;
+  --card-foreground: #0E0E0C;
+  --primary: #0E0E0C;
+  --primary-foreground: #FAFAF7;
+  --secondary: #F2F0EA;
+  --secondary-foreground: #0E0E0C;
+  --muted: #F2F0EA;
+  --muted-foreground: #56534D;
+  --accent: #F2F0EA;
+  --accent-foreground: #0E0E0C;
+  --destructive: #B82E2E;
+  --destructive-foreground: #FAFAF7;
+  --border: #E8E5DE;
+  --input: #E8E5DE;
+  --ring: #0E0E0C;
+  --radius: 0.25rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+* { border-color: var(--border); }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: 'ss01', 'cv11';
+}
+::selection { background: #0E0E0C; color: #FAFAF7; }
