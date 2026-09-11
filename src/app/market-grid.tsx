@@ -116,7 +116,7 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
         <div className="grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {filteredMarkets.map((market) => (
             <article key={market.id} className="group">
-              <div>
+              <a href={`/markets/${market.slug}`}>
                 <div
                   className="aspect-[4/3] border border-black/10 bg-[#F2F0EA] bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]"
                   style={market.hero_image_url ? { backgroundImage: `url(${market.hero_image_url})` } : undefined}
@@ -131,7 +131,7 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
                   <p className="mt-2 text-sm text-black/60">{market.city}, {market.state}</p>
                   <p className="mt-4 text-sm">{formatDate(market.next_date)}</p>
                 </div>
-              </div>
+              </a>
             </article>
           ))}
         </div>

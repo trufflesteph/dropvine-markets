@@ -7,10 +7,14 @@ Copy `.env.example` to `.env.local` and fill in the dedicated Dropvine Markets S
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe for public browser reads.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to client code.
 - `ADMIN_PASSWORD` protects `/admin` with a signed, `httpOnly` cookie.
+- `NEXT_PUBLIC_SITE_URL` sets the canonical metadata base URL (use `https://dropvinemarkets.com` in production).
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` enables this site's separate GA4 property, for example `G-XXXXXXXXXX`.
 
 Apply `supabase/migrations/20260904000000_create_markets_schema.sql` in the Supabase SQL editor or with the Supabase CLI. The migration enables RLS on every table and grants anonymous reads only for published markets and their related dates, vendors, and links.
 
 Open `http://localhost:3000/admin` to sign in to the admin area.
+
+The site footer links to [dropvine.pro](https://dropvine.pro) with the label "Also on Dropvine". The reverse link on dropvine.pro is maintained separately and is not part of this repository.
 
 ## Next.js starter notes
 

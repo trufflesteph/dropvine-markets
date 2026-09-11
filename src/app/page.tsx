@@ -3,11 +3,6 @@ import type { Metadata } from "next";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketGrid from "./market-grid";
 
-export const metadata: Metadata = {
-  title: "Markets | Dropvine",
-  description: "Find local markets worth wandering through.",
-};
-
 type Market = {
   id: string;
   name: string;
@@ -25,6 +20,23 @@ type MarketDate = {
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const response = await supabasePublicFetch("markets?status=eq.published&select=hero_image_url&hero_image_url=not.is.null&order=name.asc");
+  const markets = response.ok ? (await response.json()) as Pick<Market, "hero_image_url">[] : [];
+  const images = markets.flatMap((market) => market.hero_image_url ? [{ url: market.hero_image_url }] : []);
+
+  return {
+    title: "Markets | Dropvine",
+    description: "Find local markets worth wandering through.",
+    openGraph: {
+      title: "Markets | Dropvine",
+      description: "Find local markets worth wandering through.",
+      type: "website",
+      images,
+    },
+  };
 }
 
 async function fetchPublishedMarkets() {
