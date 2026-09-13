@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { hasAdminSession } from "@/lib/admin-auth";
 import { supabaseAdminFetch } from "@/lib/supabase-admin";
 
-const marketTypes = ["farmers", "artisan", "holiday", "night", "popup", "vintage", "other"] as const;
+const marketTypes = ["Farmers", "Artisan-Craft", "Holiday", "Night", "Popup", "Vintage-Flea", "Other"] as const;
 
 type FormValue = FormDataEntryValue | null;
 
@@ -52,6 +52,79 @@ function jsonBody(value: unknown, method: string, returnRepresentation = false):
     headers: { Prefer: returnRepresentation ? "return=representation" : "return=minimal" },
     body: JSON.stringify(value),
   };
+}
+
+type ImportRow = {
+  business_name?: unknown; category?: unknown; booth_label?: unknown; map_x?: unknown; map_y?: unknown;
+  dropvine_direct_url?: unknown; photo_url?: unknown; blurb?: unknown; external_url?: unknown;
+};
+
+function importText(value: unknown) { return typeof value === "string" && value.trim() ? value.trim() : null; }
+function importNumber(value: unknown) {
+  const parsed = importText(value);
+  if (!parsed) return null;
+  const number = Number(parsed);
+  return Number.isFinite(number) ? number : null;
+}
+function validUrl(value: string | null) {
+  if (!value) return true;
+  try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:"; } catch { return false; }
+}
+function slugify(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "vendor"; }
+function importRowError(row: ImportRow) {
+  const businessName = importText(row.business_name);
+  const category = importText(row.category);
+  const mapX = importNumber(row.map_x); const mapY = importNumber(row.map_y);
+  const rawMapX = importText(row.map_x); const rawMapY = importText(row.map_y);
+  const urls = [row.dropvine_direct_url, row.photo_url, row.external_url].map(importText);
+  const errors: string[] = [];
+  if (!businessName) errors.push("Missing business name");
+  if (!category) errors.push("Missing category");
+  if (rawMapX && (mapX === null || mapX < 0 || mapX > 100)) errors.push("Map X must be 0-100");
+  if (rawMapY && (mapY === null || mapY < 0 || mapY > 100)) errors.push("Map Y must be 0-100");
+  if (urls.some((url) => !validUrl(url))) errors.push("Malformed URL");
+  return errors;
+}
+function importVendorPayload(row: ImportRow, businessName: string, slug: string) {
+  const directUrl = importText(row.dropvine_direct_url);
+  return { slug, business_name: businessName, category: importText(row.category), photo_url: directUrl ? null : importText(row.photo_url), blurb: directUrl ? null : importText(row.blurb), dropvine_direct_url: directUrl, external_url: directUrl ? null : importText(row.external_url) };
+}
+
+export type CsvImportResult = { created: number; existing: number; skipped: number };
+type ImportedVendor = { id: string; business_name: string; slug: string };
+
+export async function importVendorsFromCsv(_previous: CsvImportResult | null, formData: FormData): Promise<CsvImportResult> {
+  await requireAdmin();
+  const marketId = requiredText(formData, "market_id");
+  const rawRows = requiredText(formData, "rows");
+  let rows: ImportRow[];
+  try { rows = JSON.parse(rawRows) as ImportRow[]; } catch { throw new Error("CSV rows could not be read"); }
+  const existingVendors = await (await request("vendors?select=id,business_name,slug")).json() as ImportedVendor[];
+  const vendorsByName = new Map(existingVendors.map((vendor) => [vendor.business_name.trim().toLowerCase(), vendor]));
+  const slugs = new Set(existingVendors.map((vendor) => vendor.slug));
+  const linkedRows = await (await request(`market_vendor_links?market_id=eq.${encodeURIComponent(marketId)}&select=vendor_id`)).json() as { vendor_id: string }[];
+  const linkedVendorIds = new Set(linkedRows.map((link) => link.vendor_id));
+  let created = 0; let existing = 0; let skipped = 0;
+  for (const row of rows) {
+    if (importRowError(row).length) { skipped += 1; continue; }
+    const businessName = importText(row.business_name)!;
+    const existingVendor = vendorsByName.get(businessName.toLowerCase());
+    let vendor: ImportedVendor | undefined = existingVendor;
+    if (vendor) existing += 1;
+    else {
+      const baseSlug = slugify(businessName); let slug = baseSlug; let suffix = 2;
+      while (slugs.has(slug)) slug = `${baseSlug}-${suffix++}`;
+      const response = await request("vendors", jsonBody(importVendorPayload(row, businessName, slug), "POST", true));
+      vendor = (await response.json())[0] as ImportedVendor; slugs.add(slug); vendorsByName.set(businessName.toLowerCase(), vendor); created += 1;
+    }
+    if (!vendor) throw new Error("Vendor could not be created");
+    if (!linkedVendorIds.has(vendor.id)) {
+      await request("market_vendor_links", jsonBody({ market_id: marketId, vendor_id: vendor.id, map_x: importNumber(row.map_x), map_y: importNumber(row.map_y), booth_label: importText(row.booth_label), featured: false }, "POST"));
+      linkedVendorIds.add(vendor.id);
+    }
+  }
+  revalidatePath("/admin");
+  return { created, existing, skipped };
 }
 
 function marketPayload(formData: FormData) {
