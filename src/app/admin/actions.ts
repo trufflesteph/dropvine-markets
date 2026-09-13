@@ -46,6 +46,77 @@ async function request(path: string, init: RequestInit = {}) {
   return response;
 }
 
+function storageUrl(path: string) {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/market-assets/${path}`;
+}
+
+async function storageRequest(path: string, init: RequestInit = {}) {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = storageUrl(path);
+  if (!key || !process.env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Supabase storage is not configured");
+  const headers = new Headers(init.headers);
+  headers.set("apikey", key);
+  headers.set("Authorization", `Bearer ${key}`);
+  return fetch(url, { ...init, headers });
+}
+
+function marketIdFromForm(formData: FormData) {
+  return requiredText(formData, "market_id");
+}
+
+export async function uploadMarketPhotos(formData: FormData) {
+  await requireAdmin();
+  const marketId = marketIdFromForm(formData);
+  const photos = formData.getAll("photos").filter((value): value is File => value instanceof File && value.size > 0);
+  const existing = await (await request(`market_photos?market_id=eq.${encodeURIComponent(marketId)}&select=sort_order&order=sort_order.desc`)).json() as { sort_order: number }[];
+  let sortOrder = existing[0]?.sort_order ?? -1;
+
+  for (const photo of photos) {
+    if (!photo.type.startsWith("image/")) throw new Error("Only image files can be uploaded");
+    const extension = photo.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${marketId}/${crypto.randomUUID()}.${extension}`;
+    const upload = await storageRequest(path, { method: "POST", headers: { "Content-Type": photo.type, "x-upsert": "false" }, body: await photo.arrayBuffer() });
+    if (!upload.ok) throw new Error(await upload.text());
+    sortOrder += 1;
+    await request("market_photos", jsonBody({ market_id: marketId, photo_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/market-assets/${path}`, sort_order: sortOrder }, "POST"));
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/markets/${marketId}`);
+  redirect(`/admin?market=${encodeURIComponent(marketId)}`);
+}
+
+function storagePathFromUrl(photoUrl: string) {
+  const marker = "/storage/v1/object/public/market-assets/";
+  const index = photoUrl.indexOf(marker);
+  return index >= 0 ? photoUrl.slice(index + marker.length) : null;
+}
+
+export async function deleteMarketPhoto(formData: FormData) {
+  await requireAdmin();
+  const id = requiredText(formData, "id");
+  const marketId = marketIdFromForm(formData);
+  const rows = await (await request(`market_photos?id=eq.${encodeURIComponent(id)}&select=photo_url`)).json() as { photo_url: string }[];
+  const path = rows[0] ? storagePathFromUrl(rows[0].photo_url) : null;
+  if (path) await storageRequest(path, { method: "DELETE" });
+  await request(`market_photos?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  revalidatePath("/admin");
+  revalidatePath(`/markets/${marketId}`);
+  redirect(`/admin?market=${encodeURIComponent(marketId)}`);
+}
+
+export async function reorderMarketPhotos(formData: FormData) {
+  await requireAdmin();
+  const marketId = marketIdFromForm(formData);
+  const ids = JSON.parse(requiredText(formData, "photo_ids")) as string[];
+  for (const [sortOrder, id] of ids.entries()) {
+    await request(`market_photos?id=eq.${encodeURIComponent(id)}&market_id=eq.${encodeURIComponent(marketId)}`, jsonBody({ sort_order: sortOrder }, "PATCH"));
+  }
+  revalidatePath("/admin");
+  revalidatePath(`/markets/${marketId}`);
+  redirect(`/admin?market=${encodeURIComponent(marketId)}`);
+}
+
 function jsonBody(value: unknown, method: string, returnRepresentation = false): RequestInit {
   return {
     method,
@@ -143,7 +214,6 @@ function marketPayload(formData: FormData) {
     address: text(formData.get("address")),
     latitude: optionalNumber(formData.get("latitude")),
     longitude: optionalNumber(formData.get("longitude")),
-    hero_image_url: text(formData.get("hero_image_url")),
     map_image_url: text(formData.get("map_image_url")),
     organizer_name: text(formData.get("organizer_name")),
     organizer_url: text(formData.get("organizer_url")),

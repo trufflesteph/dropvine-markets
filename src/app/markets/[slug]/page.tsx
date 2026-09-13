@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketDetail, { type MarketVendor } from "./market-detail";
+import MarketPhotoCarousel from "./market-photo-carousel";
 
 type Market = {
   id: string;
@@ -28,6 +29,7 @@ type MarketDate = {
   end_time: string | null;
   note: string | null;
 };
+type MarketPhoto = { id: string; photo_url: string; sort_order: number };
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -61,16 +63,18 @@ async function getMarket(slug: string) {
 }
 
 async function getMarketContent(marketId: string) {
-  const [datesResponse, linksResponse] = await Promise.all([
+  const [datesResponse, linksResponse, photosResponse] = await Promise.all([
     supabasePublicFetch(`market_dates?market_id=eq.${marketId}&is_canceled=eq.false&date=gte.${todayUtc()}&select=id,date,start_time,end_time,note&order=date.asc,start_time.asc`),
     supabasePublicFetch(`market_vendor_links?market_id=eq.${marketId}&select=id,map_x,map_y,booth_label,vendors(id,slug,business_name,category,photo_url,dropvine_direct_url)&order=booth_label.asc`),
+    supabasePublicFetch(`market_photos?market_id=eq.${marketId}&select=id,photo_url,sort_order&order=sort_order.asc`),
   ]);
 
-  if (!datesResponse.ok || !linksResponse.ok) throw new Error("Unable to load market details");
+  if (!datesResponse.ok || !linksResponse.ok || !photosResponse.ok) throw new Error("Unable to load market details");
 
   return {
     dates: (await datesResponse.json()) as MarketDate[],
     vendors: (await linksResponse.json()) as MarketVendor[],
+    photos: (await photosResponse.json()) as MarketPhoto[],
   };
 }
 
@@ -95,7 +99,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
   const market = await getMarket((await params).slug);
   if (!market) notFound();
 
-  const { dates, vendors } = await getMarketContent(market.id);
+  const { dates, vendors, photos } = await getMarketContent(market.id);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 sm:py-14">
@@ -112,9 +116,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
           </div>
         </header>
 
-        <div className="mt-10 aspect-[16/8] overflow-hidden bg-[#F2F0EA] sm:mt-14">
-          {market.hero_image_url ? <img src={market.hero_image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-serif text-3xl text-black/30">Dropvine Markets</div>}
-        </div>
+        <MarketPhotoCarousel marketName={market.name} photos={photos.length ? photos : market.hero_image_url ? [{ id: "legacy-hero", photo_url: market.hero_image_url }] : []} />
 
         {market.description ? <section className="mt-16 max-w-3xl"><p className="text-xl leading-relaxed sm:text-2xl">{market.description}</p></section> : null}
 

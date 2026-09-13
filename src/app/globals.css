@@ -46,6 +46,7 @@
 }
 
 * { border-color: var(--border); }
+.space-y-3:has(> .csv-vendor-import) { display: flex; flex-direction: column; }
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body {
   background: var(--background);

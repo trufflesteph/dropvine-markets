@@ -3,19 +3,22 @@ import { supabaseAdminFetch } from "@/lib/supabase-admin";
 import {
   createMarket, createMarketDate, createMarketVendorLink, createVendor,
   deleteMarket, deleteMarketDate, deleteMarketVendorLink, deleteVendor,
-  importVendorsFromCsv, updateMarket, updateMarketDate, updateMarketVendorLink, updateVendor,
+  deleteMarketPhoto, importVendorsFromCsv, reorderMarketPhotos, updateMarket, updateMarketDate, updateMarketVendorLink, updateVendor, uploadMarketPhotos,
 } from "./actions";
 import CsvVendorImport from "./csv-vendor-import";
+import MarketPhotoManager from "./market-photo-manager";
 
 type Market = {
   id: string; slug: string; name: string; market_type: string; description: string | null;
   city: string; state: string; address: string | null; latitude: number | null; longitude: number | null;
   hero_image_url: string | null; map_image_url: string | null; organizer_name: string | null;
   organizer_url: string | null; status: "draft" | "published";
+  photos?: MarketPhoto[];
 };
 type MarketDate = { id: string; market_id: string; date: string; start_time: string | null; end_time: string | null; is_canceled: boolean; note: string | null };
 type Vendor = { id: string; slug: string; business_name: string; category: string; photo_url: string | null; blurb: string | null; dropvine_direct_url: string | null; external_url: string | null };
 type Link = { id: string; market_id: string; vendor_id: string; map_x: number | null; map_y: number | null; booth_label: string | null; featured: boolean; vendor: Vendor };
+type MarketPhoto = { id: string; market_id: string; photo_url: string; sort_order: number };
 type AdminPageProps = { searchParams: Promise<{ error?: string; market?: string; new?: string }> };
 
 const inputClass = "mt-1 w-full border border-black/20 bg-white px-3 py-2 text-sm";
@@ -38,24 +41,25 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 async function loadAdminData() {
-  const [markets, dates, vendors, links] = await Promise.all([
+  const [markets, dates, vendors, links, photos] = await Promise.all([
     fetchJson<Market[]>("markets?select=*&order=name.asc"),
     fetchJson<MarketDate[]>("market_dates?select=*&order=date.asc"),
     fetchJson<Vendor[]>("vendors?select=*&order=business_name.asc"),
     fetchJson<(Omit<Link, "vendor"> & { vendors: Vendor })[]>("market_vendor_links?select=*,vendors(*)&order=booth_label.asc"),
+    fetchJson<MarketPhoto[]>("market_photos?select=*&order=market_id.asc,sort_order.asc"),
   ]);
-  return { markets, dates, vendors, links: links.map((link) => ({ ...link, vendor: link.vendors })) };
+  return { markets: markets.map((market) => ({ ...market, photos: photos.filter((photo) => photo.market_id === market.id) })), dates, vendors, links: links.map((link) => ({ ...link, vendor: link.vendors })), photos };
 }
 
 function MarketForm({ market }: { market?: Market }) {
-  return <form action={market ? updateMarket : createMarket} className="space-y-4 border border-black/10 bg-white/60 p-5">
+  return <><form action={market ? updateMarket : createMarket} className="space-y-4 border border-black/10 bg-white/60 p-5">
     {market ? <input type="hidden" name="id" value={market.id} /> : null}
-    <div className="grid gap-4 md:grid-cols-2"><Field label="Name" name="name" defaultValue={market?.name} required /><Field label="Slug" name="slug" defaultValue={market?.slug} required /><Field label="City" name="city" defaultValue={market?.city} required /><Field label="State" name="state" defaultValue={market?.state} required /><Field label="Address" name="address" defaultValue={market?.address} /><label className="block text-sm"><span>Market type</span><select className={inputClass} name="market_type" defaultValue={market?.market_type ?? "Farmers"} required><option value="">Select a type</option>{marketTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><Field label="Latitude" name="latitude" defaultValue={market?.latitude} type="number" /><Field label="Longitude" name="longitude" defaultValue={market?.longitude} type="number" /><Field label="Hero image URL" name="hero_image_url" defaultValue={market?.hero_image_url} /><Field label="Map image URL" name="map_image_url" defaultValue={market?.map_image_url} /><Field label="Organizer name" name="organizer_name" defaultValue={market?.organizer_name} /><Field label="Organizer URL" name="organizer_url" defaultValue={market?.organizer_url} /></div>
+    <div className="grid gap-4 md:grid-cols-2"><Field label="Name" name="name" defaultValue={market?.name} required /><Field label="Slug" name="slug" defaultValue={market?.slug} required /><Field label="City" name="city" defaultValue={market?.city} required /><Field label="State" name="state" defaultValue={market?.state} required /><Field label="Address" name="address" defaultValue={market?.address} /><label className="block text-sm"><span>Market type</span><select className={inputClass} name="market_type" defaultValue={market?.market_type ?? "Farmers"} required><option value="">Select a type</option>{marketTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><Field label="Latitude" name="latitude" defaultValue={market?.latitude} type="number" /><Field label="Longitude" name="longitude" defaultValue={market?.longitude} type="number" /><Field label="Map image URL" name="map_image_url" defaultValue={market?.map_image_url} /><Field label="Organizer name" name="organizer_name" defaultValue={market?.organizer_name} /><Field label="Organizer URL" name="organizer_url" defaultValue={market?.organizer_url} /></div>
     {market && !marketTypes.includes(market.market_type) ? <p className="border border-amber-700/30 bg-amber-50 px-3 py-2 text-sm text-amber-900">This market has an invalid type value, <strong>{market.market_type}</strong>. Choose a valid type and save it manually.</p> : null}
     <TextArea label="Description" name="description" defaultValue={market?.description} />
     <label className="block text-sm"><span>Status</span><select className={inputClass} name="status" defaultValue={market?.status ?? "draft"}><option value="draft">Draft</option><option value="published">Published</option></select></label>
     <button className={primaryButtonClass} type="submit">{market ? "Save market" : "Create market"}</button>
-  </form>;
+  </form>{market ? <MarketPhotoManager deleteAction={deleteMarketPhoto} marketId={market.id} photos={market.photos ?? []} reorderAction={reorderMarketPhotos} uploadAction={uploadMarketPhotos} /> : null}</>;
 }
 
 function DateForm({ marketId, date }: { marketId: string; date?: MarketDate }) {
