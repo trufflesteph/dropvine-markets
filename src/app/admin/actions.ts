@@ -154,9 +154,9 @@ function marketPayload(formData: FormData) {
 export async function createMarket(formData: FormData) {
   await requireAdmin();
   const response = await request("markets", jsonBody(marketPayload(formData), "POST", true));
-  const created = await response.json();
+  await response.json();
   revalidatePath("/admin");
-  redirect(`/admin?market=${created[0].id}`);
+  redirect("/admin");
 }
 
 export async function updateMarket(formData: FormData) {
