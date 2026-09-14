@@ -7,6 +7,9 @@ import { hasAdminSession } from "@/lib/admin-auth";
 import { supabaseAdminFetch } from "@/lib/supabase-admin";
 
 const marketTypes = ["Farmers", "Artisan-Craft", "Holiday", "Night", "Popup", "Vintage-Flea", "Other"] as const;
+const marketPhotosBucket = "market_photos";
+const marketPhotoTypes = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"]);
+const marketPhotoMaxBytes = 10 * 1024 * 1024;
 
 type FormValue = FormDataEntryValue | null;
 
@@ -47,7 +50,7 @@ async function request(path: string, init: RequestInit = {}) {
 }
 
 function storageUrl(path: string) {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/market-assets/${path}`;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${marketPhotosBucket}/${path}`;
 }
 
 async function storageRequest(path: string, init: RequestInit = {}) {
@@ -72,13 +75,14 @@ export async function uploadMarketPhotos(formData: FormData) {
   let sortOrder = existing[0]?.sort_order ?? -1;
 
   for (const photo of photos) {
-    if (!photo.type.startsWith("image/")) throw new Error("Only image files can be uploaded");
+    if (!marketPhotoTypes.has(photo.type)) throw new Error("Photos must be JPEG, PNG, GIF, WebP, or AVIF images");
+    if (photo.size > marketPhotoMaxBytes) throw new Error("Each photo must be 10 MB or smaller");
     const extension = photo.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const path = `${marketId}/${crypto.randomUUID()}.${extension}`;
     const upload = await storageRequest(path, { method: "POST", headers: { "Content-Type": photo.type, "x-upsert": "false" }, body: await photo.arrayBuffer() });
     if (!upload.ok) throw new Error(await upload.text());
     sortOrder += 1;
-    await request("market_photos", jsonBody({ market_id: marketId, photo_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/market-assets/${path}`, sort_order: sortOrder }, "POST"));
+    await request("market_photos", jsonBody({ market_id: marketId, photo_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${marketPhotosBucket}/${path}`, sort_order: sortOrder }, "POST"));
   }
 
   revalidatePath("/admin");
@@ -87,7 +91,7 @@ export async function uploadMarketPhotos(formData: FormData) {
 }
 
 function storagePathFromUrl(photoUrl: string) {
-  const marker = "/storage/v1/object/public/market-assets/";
+  const marker = `/storage/v1/object/public/${marketPhotosBucket}/`;
   const index = photoUrl.indexOf(marker);
   return index >= 0 ? photoUrl.slice(index + marker.length) : null;
 }
