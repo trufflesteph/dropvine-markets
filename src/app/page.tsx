@@ -18,6 +18,12 @@ type MarketDate = {
   date: string;
 };
 
+type MarketPhoto = {
+  market_id: string;
+  photo_url: string;
+  sort_order: number;
+};
+
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -40,19 +46,33 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function fetchPublishedMarkets() {
-  const marketResponse = await supabasePublicFetch(
-    "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url&order=name.asc",
-  );
-  const dateResponse = await supabasePublicFetch(
-    `market_dates?is_canceled=eq.false&date=gte.${todayUtc()}&select=market_id,date&order=date.asc`,
-  );
+  const [marketResponse, dateResponse, photosResponse] = await Promise.all([
+    supabasePublicFetch(
+      "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url&order=name.asc",
+    ),
+    supabasePublicFetch(
+      `market_dates?is_canceled=eq.false&date=gte.${todayUtc()}&select=market_id,date&order=date.asc`,
+    ),
+    supabasePublicFetch(
+      "market_photos?select=market_id,photo_url,sort_order&order=sort_order.asc",
+    ),
+  ]);
 
-  if (!marketResponse.ok || !dateResponse.ok) {
+  if (!marketResponse.ok || !dateResponse.ok || !photosResponse.ok) {
     throw new Error("Unable to load published markets");
   }
 
   const markets = (await marketResponse.json()) as Market[];
   const dates = (await dateResponse.json()) as MarketDate[];
+  const photos = (await photosResponse.json()) as MarketPhoto[];
+  const firstPhotoByMarket = new Map<string, string>();
+
+  for (const photo of photos) {
+    if (!firstPhotoByMarket.has(photo.market_id)) {
+      firstPhotoByMarket.set(photo.market_id, photo.photo_url);
+    }
+  }
+
   const nextDates = new Map<string, string>();
 
   for (const date of dates) {
@@ -63,6 +83,7 @@ async function fetchPublishedMarkets() {
 
   return markets.map((market) => ({
     ...market,
+    hero_image_url: firstPhotoByMarket.get(market.id) ?? market.hero_image_url,
     next_date: nextDates.get(market.id) ?? null,
   }));
 }

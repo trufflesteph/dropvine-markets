@@ -30,6 +30,7 @@ type MarketDate = {
   note: string | null;
 };
 type MarketPhoto = { id: string; photo_url: string; sort_order: number };
+type MarketVendorResponse = Omit<MarketVendor, "vendor"> & { vendors: MarketVendor["vendor"] | null };
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -71,9 +72,11 @@ async function getMarketContent(marketId: string) {
 
   if (!datesResponse.ok || !linksResponse.ok || !photosResponse.ok) throw new Error("Unable to load market details");
 
+  const vendorLinks = (await linksResponse.json()) as MarketVendorResponse[];
+
   return {
     dates: (await datesResponse.json()) as MarketDate[],
-    vendors: (await linksResponse.json()) as MarketVendor[],
+    vendors: vendorLinks.filter((link): link is MarketVendorResponse & { vendors: MarketVendor["vendor"] } => Boolean(link.vendors)).map((link) => ({ ...link, vendor: link.vendors })),
     photos: (await photosResponse.json()) as MarketPhoto[],
   };
 }
