@@ -74,7 +74,7 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-8 sm:py-14">
       <header className="mb-12 max-w-2xl">
         <p className="text-sm uppercase tracking-[0.2em] text-black/50">Dropvine Markets</p>
-        <h1 className="mt-5 font-serif text-4xl leading-tight sm:text-5xl">Find something good nearby.</h1>
+        <h1 className="mt-5 font-serif text-4xl leading-tight sm:text-5xl">Building community one market at a time</h1>
       </header>
       <MarketGrid markets={markets} />
     </main>
