@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { supabasePublicFetch } from "@/lib/supabase-public";
@@ -109,7 +110,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
       <article>
         <header className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)] lg:items-end">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-black/45">{market.market_type}</p>
+            <Link className="text-xs uppercase tracking-[0.2em] text-black/45 hover:text-black" href="/">Dropvine Markets</Link>
             <h1 className="mt-4 max-w-4xl font-serif text-5xl leading-[0.98] sm:text-7xl">{market.name}</h1>
           </div>
           <div className="border-l border-black/10 pl-5 text-sm text-black/60">
