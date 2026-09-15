@@ -8,6 +8,7 @@ import {
 } from "./actions";
 import CsvVendorImport from "./csv-vendor-import";
 import MarketPhotoManager from "./market-photo-manager";
+import SubmitButton from "./submit-button";
 
 type Market = {
   id: string; slug: string; name: string; market_type: string; description: string | null;
@@ -59,7 +60,7 @@ function MarketForm({ market }: { market?: Market }) {
     {market && !marketTypes.includes(market.market_type) ? <p className="border border-amber-700/30 bg-amber-50 px-3 py-2 text-sm text-amber-900">This market has an invalid type value, <strong>{market.market_type}</strong>. Choose a valid type and save it manually.</p> : null}
     <TextArea label="Description" name="description" defaultValue={market?.description} />
     <label className="block text-sm"><span>Status</span><select className={inputClass} name="status" defaultValue={market?.status ?? "draft"}><option value="draft">Draft</option><option value="published">Published</option></select></label>
-    <button className={primaryButtonClass} type="submit">{market ? "Save market" : "Create market"}</button>
+    <SubmitButton className={primaryButtonClass} pendingLabel="Saving market...">{market ? "Save market" : "Create market"}</SubmitButton>
   </form>{market ? <MarketPhotoManager deleteAction={deleteMarketPhoto} marketId={market.id} photos={market.photos ?? []} reorderAction={reorderMarketPhotos} uploadAction={uploadMarketPhotos} /> : null}</>;
 }
 
@@ -69,7 +70,7 @@ function DateForm({ marketId, date }: { marketId: string; date?: MarketDate }) {
     <div className="grid gap-3 md:grid-cols-3"><Field label="Date" name="date" defaultValue={date?.date} type="date" required /><Field label="Start" name="start_time" defaultValue={date?.start_time?.slice(0, 5)} type="time" /><Field label="End" name="end_time" defaultValue={date?.end_time?.slice(0, 5)} type="time" /></div>
     <TextArea label="Cancellation or date note" name="note" defaultValue={date?.note} />
     <label className="flex items-center gap-2 text-sm"><input name="is_canceled" type="checkbox" defaultChecked={date?.is_canceled} /> Canceled</label>
-    <button className={buttonClass} type="submit">{date ? "Save date" : "Add date"}</button>
+    <SubmitButton className={buttonClass} pendingLabel="Saving date...">{date ? "Save date" : "Add date"}</SubmitButton>
   </form>;
 }
 
@@ -81,7 +82,7 @@ function VendorForm({ vendor }: { vendor?: Vendor }) {
     {direct ? <p className="border border-green-700/30 bg-green-50 px-3 py-2 text-sm text-green-800">Linked to Dropvine Direct. Markets-native fields are disabled.</p> : null}
     <div className="grid gap-4 md:grid-cols-2"><Field label="Photo URL" name="photo_url" defaultValue={vendor?.photo_url} disabled={direct} /><Field label="External URL" name="external_url" defaultValue={vendor?.external_url} disabled={direct} /></div>
     <TextArea label="Blurb" name="blurb" defaultValue={vendor?.blurb} disabled={direct} />
-    <button className={primaryButtonClass} type="submit">{vendor ? "Save vendor" : "Create vendor"}</button>
+    <SubmitButton className={primaryButtonClass} pendingLabel="Saving vendor...">{vendor ? "Save vendor" : "Create vendor"}</SubmitButton>
   </form>;
 }
 
@@ -91,7 +92,7 @@ function LinkForm({ marketId, vendors, link, hasMap }: { marketId: string; vendo
     <label className="block text-sm"><span>Vendor</span><select className={inputClass} name="vendor_id" defaultValue={link?.vendor_id ?? ""} required disabled={Boolean(link)}><option value="">Select vendor</option>{vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.business_name}</option>)}</select>{link ? <input name="vendor_id" type="hidden" value={link.vendor_id} /> : null}</label>
     {hasMap ? <div className="grid gap-3 md:grid-cols-3"><Field label="Map X (0-100)" name="map_x" defaultValue={link?.map_x} type="number" /><Field label="Map Y (0-100)" name="map_y" defaultValue={link?.map_y} type="number" /><Field label="Booth label" name="booth_label" defaultValue={link?.booth_label} /></div> : <p className="text-sm text-black/55">Add a map image URL to this market to position booths.</p>}
     <label className="flex items-center gap-2 text-sm"><input name="featured" type="checkbox" defaultChecked={link?.featured} /> Featured</label>
-    <button className={buttonClass} type="submit">{link ? "Save link" : "Add vendor to market"}</button>
+    <SubmitButton className={buttonClass} pendingLabel="Saving link...">{link ? "Save link" : "Add vendor to market"}</SubmitButton>
   </form>;
 }
 
