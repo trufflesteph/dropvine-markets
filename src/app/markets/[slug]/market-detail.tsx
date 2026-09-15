@@ -28,6 +28,23 @@ function vendorHref(vendor: MarketVendor["vendor"]) {
   return vendor.dropvine_direct_url ?? `/vendors/${vendor.slug}`;
 }
 
+const categoryColors: Record<string, { background: string; foreground: string }> = {
+  bakery: { background: "#F2C14E", foreground: "#241B00" },
+  beverage: { background: "#7BC8A4", foreground: "#092A1A" },
+  food: { background: "#E8875A", foreground: "#321207" },
+  produce: { background: "#8FBE5D", foreground: "#122007" },
+  artisan: { background: "#B79AD8", foreground: "#21102F" },
+  crafts: { background: "#B79AD8", foreground: "#21102F" },
+  vintage: { background: "#D99A9A", foreground: "#321313" },
+  wellness: { background: "#78B7C9", foreground: "#08222B" },
+};
+
+function categoryColor(category: string) {
+  const normalized = category.toLowerCase();
+  const match = Object.entries(categoryColors).find(([name]) => normalized.includes(name));
+  return match?.[1] ?? { background: "#D5D0C5", foreground: "#211F1A" };
+}
+
 export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors }: MarketDetailProps) {
   const [activeVendorId, setActiveVendorId] = useState<string | null>(null);
   const vendorRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -60,17 +77,17 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
         {mapImageUrl ? (
           <div className="relative overflow-hidden border border-black/10 bg-[#F2F0EA]">
             <img src={mapImageUrl} alt="Market vendor map" className="block h-auto w-full" />
-            {vendors.map((link) => link.map_x !== null && link.map_y !== null ? (
+            {vendors.map((link, index) => link.map_x !== null && link.map_y !== null ? (
               <button
                 key={link.id}
                 type="button"
-                aria-label={`Find ${link.vendor.business_name}`}
+                aria-label={`Find vendor ${index + 1}, ${link.vendor.business_name}, ${link.vendor.category}`}
                 aria-pressed={activeVendorId === link.vendor.id}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 border-white bg-black shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "z-10 h-8 w-8 bg-[#B84A32] ring-4 ring-[#B84A32]/25" : "h-6 w-6 hover:h-7 hover:w-7"}`}
-                style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "z-10 h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 hover:h-8 hover:w-8"}`}
+                style={{ backgroundColor: categoryColor(link.vendor.category).background, color: categoryColor(link.vendor.category).foreground, left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
-                <span className="sr-only">{link.vendor.business_name}</span>
+                {index + 1}
               </button>
             ) : null)}
           </div>
@@ -101,12 +118,15 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
 
         {vendors.length ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            {vendors.map((link) => (
+            {vendors.map((link, index) => {
+              const color = categoryColor(link.vendor.category);
+              return (
               <article
                 key={link.id}
                 ref={(element) => { vendorRefs.current[link.vendor.id] = element; }}
                 tabIndex={-1}
-                className={`transition-colors focus:outline-none ${activeVendorId === link.vendor.id ? "bg-[#F2F0EA]" : ""}`}
+                className={`border-l-4 transition-colors focus:outline-none ${activeVendorId === link.vendor.id ? "bg-[#F2F0EA]" : ""}`}
+                style={{ borderLeftColor: color.background }}
               >
                 <a
                   href={vendorHref(link.vendor)}
@@ -117,13 +137,16 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                     {!link.vendor.photo_url ? <span className="flex h-full items-center justify-center px-2 text-center font-serif text-sm text-black/35">Dropvine</span> : null}
                   </div>
                   <div className="min-w-0 py-1">
-                    <h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3>
-                    <p className="mt-1 text-sm text-black/55">{link.vendor.category}</p>
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={{ backgroundColor: color.background, color: color.foreground }}>{index + 1}</span>
+                      <div><h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3><p className="mt-1 text-sm text-black/55">{link.vendor.category}</p></div>
+                    </div>
                     {link.booth_label ? <p className="mt-3 text-xs uppercase tracking-[0.14em] text-black/45">{link.booth_label}</p> : null}
                   </div>
                 </a>
               </article>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="border border-black/10 px-5 py-10 text-center text-sm text-black/55">No vendors listed yet.</p>
