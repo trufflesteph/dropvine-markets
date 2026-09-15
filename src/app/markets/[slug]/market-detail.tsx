@@ -141,7 +141,6 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={{ backgroundColor: color.background, color: color.foreground }}>{index + 1}</span>
                       <div><h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3><p className="mt-1 text-sm text-black/55">{link.vendor.category}</p></div>
                     </div>
-                    {link.booth_label ? <p className="mt-3 text-xs uppercase tracking-[0.14em] text-black/45">{link.booth_label}</p> : null}
                   </div>
                 </a>
               </article>
