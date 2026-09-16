@@ -74,10 +74,21 @@ async function fetchPublishedMarkets() {
   }
 
   const nextDates = new Map<string, string>();
+  const consecutiveEndDates = new Map<string, string>();
 
   for (const date of dates) {
     if (!nextDates.has(date.market_id)) {
       nextDates.set(date.market_id, date.date);
+    }
+
+    const startDate = nextDates.get(date.market_id);
+    const previousDate = consecutiveEndDates.get(date.market_id) ?? startDate;
+    if (startDate && previousDate) {
+      const previous = new Date(`${previousDate}T00:00:00Z`);
+      const current = new Date(`${date.date}T00:00:00Z`);
+      if (current.getTime() - previous.getTime() === 24 * 60 * 60 * 1000) {
+        consecutiveEndDates.set(date.market_id, date.date);
+      }
     }
   }
 
@@ -85,6 +96,7 @@ async function fetchPublishedMarkets() {
     ...market,
     hero_image_url: firstPhotoByMarket.get(market.id) ?? market.hero_image_url,
     next_date: nextDates.get(market.id) ?? null,
+    next_date_end: consecutiveEndDates.get(market.id) ?? null,
   }));
 }
 

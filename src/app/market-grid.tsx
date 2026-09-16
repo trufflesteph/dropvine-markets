@@ -12,6 +12,7 @@ type Market = {
   state: string;
   hero_image_url: string | null;
   next_date: string | null;
+  next_date_end: string | null;
 };
 
 type DateFilter = "all" | "weekend" | "month";
@@ -28,6 +29,25 @@ function formatDate(value: string | null) {
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function formatDateDisplay(start: string | null, end: string | null) {
+  if (!start || !end || start === end) return formatDate(start);
+
+  const startDate = new Date(`${start}T00:00:00Z`);
+  const endDate = new Date(`${end}T00:00:00Z`);
+  const monthAndDay = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+  if (startDate.getUTCFullYear() === endDate.getUTCFullYear() && startDate.getUTCMonth() === endDate.getUTCMonth()) {
+    const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(startDate);
+    return `${month} ${startDate.getUTCDate()}–${endDate.getUTCDate()}`;
+  }
+
+  return `${monthAndDay.format(startDate)} – ${monthAndDay.format(endDate)}`;
 }
 
 function isInDateFilter(value: string | null, filter: DateFilter) {
@@ -129,7 +149,7 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
                     <h2 className="font-serif text-2xl leading-tight">{market.name}</h2>
                     <p className="mt-2 text-xs uppercase tracking-[0.14em] text-black/45">{market.market_type}</p>
                     <p className="mt-4 text-sm text-black/60">{market.city}, {market.state}</p>
-                    <p className="mt-2 text-sm">{formatDate(market.next_date)}</p>
+                    <p className="mt-2 text-sm">{formatDateDisplay(market.next_date, market.next_date_end)}</p>
                   </div>
                 </div>
               </a>
