@@ -98,6 +98,9 @@ export default async function Home() {
         <h1 className="mt-5 font-serif text-4xl leading-tight sm:text-5xl">Building community one market at a time</h1>
       </header>
       <MarketGrid markets={markets} />
+      <p className="mt-16 border-t border-black/10 pt-6 text-sm text-black/55">
+        See a market that should be here? Let us know: <a className="underline decoration-black/25 underline-offset-4 hover:decoration-black" href="mailto:hello@dropvine.pro">hello@dropvine.pro</a>
+      </p>
     </main>
   );
 }
