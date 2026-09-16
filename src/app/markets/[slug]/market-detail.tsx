@@ -77,7 +77,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
 
         {mapImageUrl ? (
           <div className="relative overflow-hidden border border-black/10 bg-[#F2F0EA]">
-            <Image src={mapImageUrl} alt="Market vendor map" width={1600} height={900} sizes="(max-width: 1280px) 100vw, 1152px" className="block h-auto w-full" />
+            <Image src={mapImageUrl} alt="Market vendor map" width={1600} height={900} sizes="(max-width: 1280px) 100vw, 1152px" unoptimized className="block h-auto w-full" />
             {vendors.map((link, index) => link.map_x !== null && link.map_y !== null ? (
               <button
                 key={link.id}
