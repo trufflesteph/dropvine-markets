@@ -113,23 +113,23 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
       </div>
 
       {filteredMarkets.length ? (
-        <div className="grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6">
           {filteredMarkets.map((market) => (
             <article key={market.id} className="group">
               <a href={`/markets/${market.slug}`}>
-                <div
-                  className="aspect-[4/3] border border-black/10 bg-[#F2F0EA] bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]"
-                  style={market.hero_image_url ? { backgroundImage: `url(${market.hero_image_url})` } : undefined}
-                >
-                  {!market.hero_image_url ? <div className="flex h-full items-center justify-center px-6 text-center font-serif text-2xl text-black/35">Dropvine Markets</div> : null}
-                </div>
-                <div className="pt-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="font-serif text-2xl leading-tight">{market.name}</h2>
-                    <span className="shrink-0 pt-1 text-xs uppercase tracking-[0.14em] text-black/45">{market.market_type}</span>
+                <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5">
+                  <div
+                    className="aspect-[4/3] border border-black/10 bg-[#F2F0EA] bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]"
+                    style={market.hero_image_url ? { backgroundImage: `url(${market.hero_image_url})` } : undefined}
+                  >
+                    {!market.hero_image_url ? <div className="flex h-full items-center justify-center px-6 text-center font-serif text-2xl text-black/35">Dropvine Markets</div> : null}
                   </div>
-                  <p className="mt-2 text-sm text-black/60">{market.city}, {market.state}</p>
-                  <p className="mt-4 text-sm">{formatDate(market.next_date)}</p>
+                  <div className="flex flex-col justify-center">
+                    <h2 className="font-serif text-2xl leading-tight">{market.name}</h2>
+                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-black/45">{market.market_type}</p>
+                    <p className="mt-4 text-sm text-black/60">{market.city}, {market.state}</p>
+                    <p className="mt-2 text-sm">{formatDate(market.next_date)}</p>
+                  </div>
                 </div>
               </a>
             </article>
