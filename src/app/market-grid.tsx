@@ -116,7 +116,7 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
       {filteredMarkets.length ? (
         <div className="grid gap-6">
           {filteredMarkets.map((market) => (
-            <article key={market.id} className="group">
+            <article key={market.id} className="group rounded-md border border-black/10 bg-white/60 p-3 shadow-sm">
               <a href={`/markets/${market.slug}`}>
                 <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5">
                   <div

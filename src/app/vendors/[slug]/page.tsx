@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 
 import { supabasePublicFetch } from "@/lib/supabase-public";
+import BackButton from "./back-button";
 
 type Vendor = {
   id: string;
@@ -74,6 +75,7 @@ export default async function VendorPage({ params }: PageProps<"/vendors/[slug]"
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-8 sm:py-16">
       <article>
+        <BackButton />
         <header className="grid gap-8 sm:grid-cols-[minmax(220px,320px)_minmax(0,1fr)] sm:items-end">
           <div className="aspect-square overflow-hidden bg-[#F2F0EA]">
             {vendor.photo_url ? <Image src={vendor.photo_url} alt="" width={640} height={640} sizes="(max-width: 640px) 100vw, 320px" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-8 text-center font-serif text-3xl text-black/30">Dropvine Markets</div>}
@@ -90,11 +92,11 @@ export default async function VendorPage({ params }: PageProps<"/vendors/[slug]"
           <p className="text-xs uppercase tracking-[0.18em] text-black/45">Find them in person</p>
           <h2 id="vendor-markets-heading" className="mt-2 font-serif text-3xl">Markets</h2>
           {markets.length ? (
-            <div className="mt-6 divide-y divide-black/10 border-y border-black/10">
+            <div className="mt-6 grid gap-3">
               {markets.map((market) => (
-                <a key={market.id} href={`/markets/${market.slug}`} className="flex items-center justify-between gap-5 py-5 transition-colors hover:bg-[#F2F0EA]">
+                <a key={market.id} href={`/markets/${market.slug}`} className="flex items-center justify-between gap-5 rounded-md border border-black/10 bg-white/60 p-5 shadow-sm transition-colors hover:border-black/35 hover:bg-[#F2F0EA]">
                   <div>
-                    <h3 className="font-serif text-2xl">{market.name}</h3>
+                    <h3 className="font-serif text-lg font-medium leading-tight">{market.name}</h3>
                     <p className="mt-1 text-sm text-black/55">{market.city}, {market.state}</p>
                   </div>
                   <span aria-hidden="true" className="text-xl text-black/45">→</span>
