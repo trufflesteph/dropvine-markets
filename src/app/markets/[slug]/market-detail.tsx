@@ -132,18 +132,17 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                 <a
                   href={vendorHref(link.vendor)}
                   onClick={() => selectVendor(link.vendor.id)}
-                  className="flex min-h-28 gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
+                  className="flex min-h-28 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
                 >
                   <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-[#F2F0EA]">
                     {link.vendor.photo_url ? <Image src={link.vendor.photo_url} alt="" fill sizes="96px" className="object-cover" /> : null}
                     {!link.vendor.photo_url ? <span className="flex h-full items-center justify-center px-2 text-center font-serif text-sm text-black/35">Dropvine</span> : null}
                   </div>
-                  <div className="min-w-0 py-1">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={{ backgroundColor: color.background, color: color.foreground }}>{index + 1}</span>
-                      <div><h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3><p className="mt-1 text-sm text-black/55">{link.vendor.category}</p></div>
-                    </div>
+                  <div className="min-w-0 flex-1 py-1">
+                    <h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3>
+                    <p className="mt-1 text-sm text-black/55">{link.vendor.category}</p>
                   </div>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={{ backgroundColor: color.background, color: color.foreground }}>{index + 1}</span>
                 </a>
               </article>
               );
