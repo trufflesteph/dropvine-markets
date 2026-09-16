@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 
 type Market = {
@@ -119,9 +120,9 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
               <a href={`/markets/${market.slug}`}>
                 <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5">
                   <div
-                    className="aspect-[4/3] border border-black/10 bg-[#F2F0EA] bg-cover bg-center transition-transform duration-300 group-hover:scale-[1.01]"
-                    style={market.hero_image_url ? { backgroundImage: `url(${market.hero_image_url})` } : undefined}
+                    className="relative aspect-[4/3] overflow-hidden border border-black/10 bg-[#F2F0EA]"
                   >
+                    {market.hero_image_url ? <Image src={market.hero_image_url} alt={market.name} fill sizes="(max-width: 768px) 55vw, 35vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.01]" /> : null}
                     {!market.hero_image_url ? <div className="flex h-full items-center justify-center px-6 text-center font-serif text-2xl text-black/35">Dropvine Markets</div> : null}
                   </div>
                   <div className="flex flex-col justify-center">

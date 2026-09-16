@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
 
 export type MarketVendor = {
@@ -76,7 +77,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
 
         {mapImageUrl ? (
           <div className="relative overflow-hidden border border-black/10 bg-[#F2F0EA]">
-            <img src={mapImageUrl} alt="Market vendor map" className="block h-auto w-full" />
+            <Image src={mapImageUrl} alt="Market vendor map" width={1600} height={900} sizes="(max-width: 1280px) 100vw, 1152px" className="block h-auto w-full" />
             {vendors.map((link, index) => link.map_x !== null && link.map_y !== null ? (
               <button
                 key={link.id}
@@ -133,7 +134,8 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   onClick={() => selectVendor(link.vendor.id)}
                   className="flex min-h-28 gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
                 >
-                  <div className="h-24 w-24 shrink-0 bg-[#F2F0EA] bg-cover bg-center" style={link.vendor.photo_url ? { backgroundImage: `url(${link.vendor.photo_url})` } : undefined}>
+                  <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-[#F2F0EA]">
+                    {link.vendor.photo_url ? <Image src={link.vendor.photo_url} alt="" fill sizes="96px" className="object-cover" /> : null}
                     {!link.vendor.photo_url ? <span className="flex h-full items-center justify-center px-2 text-center font-serif text-sm text-black/35">Dropvine</span> : null}
                   </div>
                   <div className="min-w-0 py-1">

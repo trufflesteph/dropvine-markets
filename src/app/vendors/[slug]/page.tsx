@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 
 import { supabasePublicFetch } from "@/lib/supabase-public";
@@ -75,7 +76,7 @@ export default async function VendorPage({ params }: PageProps<"/vendors/[slug]"
       <article>
         <header className="grid gap-8 sm:grid-cols-[minmax(220px,320px)_minmax(0,1fr)] sm:items-end">
           <div className="aspect-square overflow-hidden bg-[#F2F0EA]">
-            {vendor.photo_url ? <img src={vendor.photo_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-8 text-center font-serif text-3xl text-black/30">Dropvine Markets</div>}
+            {vendor.photo_url ? <Image src={vendor.photo_url} alt="" width={640} height={640} sizes="(max-width: 640px) 100vw, 320px" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-8 text-center font-serif text-3xl text-black/30">Dropvine Markets</div>}
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-black/45">{vendor.category}</p>
