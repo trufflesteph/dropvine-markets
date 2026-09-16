@@ -38,7 +38,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8">
           <div className="flex flex-col gap-2 border-t border-black/10 pt-5 text-sm text-black/50 sm:flex-row sm:items-center sm:justify-between">
             <span>Dropvine Markets</span>
-            <a className="w-fit underline decoration-black/25 underline-offset-4 hover:decoration-black" href="https://dropvine.pro">Also on Dropvine</a>
           </div>
         </footer>
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? (
