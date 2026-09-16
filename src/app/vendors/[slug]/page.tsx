@@ -24,7 +24,7 @@ type Market = {
 };
 
 type MarketVendorLink = {
-  market: Market;
+  markets: Market;
 };
 
 async function getVendor(slug: string) {
@@ -44,7 +44,7 @@ async function getVendorMarkets(vendorId: string) {
 
   if (!response.ok) throw new Error("Unable to load vendor markets");
   const links = (await response.json()) as MarketVendorLink[];
-  return links.map((link) => link.market).filter(Boolean);
+  return links.map((link) => link.markets).filter(Boolean);
 }
 
 export async function generateMetadata({ params }: PageProps<"/vendors/[slug]">): Promise<Metadata> {
@@ -81,11 +81,10 @@ export default async function VendorPage({ params }: PageProps<"/vendors/[slug]"
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-black/45">{vendor.category}</p>
             <h1 className="mt-4 font-serif text-5xl leading-tight sm:text-6xl">{vendor.business_name}</h1>
-            {vendor.external_url ? <a className="mt-6 inline-block text-sm underline decoration-black/25 underline-offset-4 hover:decoration-black" href={vendor.external_url}>Visit website or Instagram</a> : null}
+            {vendor.blurb ? <p className="mt-5 max-w-2xl text-lg leading-relaxed text-black/70">{vendor.blurb}</p> : null}
+            {vendor.external_url ? <a className="mt-5 inline-block text-sm underline decoration-black/25 underline-offset-4 hover:decoration-black" href={vendor.external_url}>Visit their website</a> : null}
           </div>
         </header>
-
-        {vendor.blurb ? <p className="mt-16 max-w-2xl text-xl leading-relaxed sm:text-2xl">{vendor.blurb}</p> : null}
 
         <section aria-labelledby="vendor-markets-heading" className="mt-20 border-t border-black/10 pt-10">
           <p className="text-xs uppercase tracking-[0.18em] text-black/45">Find them in person</p>
