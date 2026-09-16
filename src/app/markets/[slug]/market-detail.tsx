@@ -70,7 +70,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-black/45">Layout</p>
-            <h2 id="market-map-heading" className="mt-2 font-serif text-3xl">Find the vendors</h2>
+            <h2 id="market-map-heading" className="mt-2 font-serif text-3xl">Explore the Market</h2>
           </div>
           {mapImageUrl ? <p className="text-right text-sm text-black/50">Select a booth to find it below.</p> : null}
         </div>
@@ -111,7 +111,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
       <section id="market-vendors" aria-labelledby="market-vendors-heading" className="mt-20 scroll-mt-8 border-t border-black/10 pt-10">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-black/45">On the map</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-black/45">Meet the</p>
             <h2 id="market-vendors-heading" className="mt-2 font-serif text-3xl">Vendors</h2>
           </div>
           <p className="text-sm text-black/50">{vendors.length} {vendors.length === 1 ? "vendor" : "vendors"}</p>
