@@ -4,11 +4,12 @@ import Link from "next/link";
 import {
   createMarket, createMarketDate, createMarketVendorLink, createVendor,
   deleteMarket, deleteMarketDate, deleteMarketVendorLink, deleteVendor,
-  deleteMarketPhoto, importVendorsFromCsv, reorderMarketPhotos, updateMarket, updateMarketDate, updateMarketVendorLink, updateVendor, uploadMarketPhotos,
+  deleteMarketPhoto, importVendorsFromCsv, reorderMarketPhotos, updateMarket, updateMarketDate, updateMarketVendorLink, updateVendor, uploadMarketPhotos, uploadVendorPhoto,
 } from "./actions";
 import CsvVendorImport from "./csv-vendor-import";
 import MarketPhotoManager from "./market-photo-manager";
 import SubmitButton from "./submit-button";
+import VendorEditor from "./vendor-form";
 
 type Market = {
   id: string; slug: string; name: string; market_type: string; description: string | null;
@@ -34,6 +35,10 @@ function Field({ label, name, defaultValue, type = "text", required = false, dis
 
 function TextArea({ label, name, defaultValue, disabled = false }: { label: string; name: string; defaultValue?: string | null; disabled?: boolean }) {
   return <label className="block text-sm"><span>{label}</span><textarea className={inputClass} name={name} defaultValue={defaultValue ?? ""} rows={3} disabled={disabled} /></label>;
+}
+
+function VendorForm({ vendor }: { vendor?: Vendor }) {
+  return <VendorEditor saveAction={vendor ? updateVendor : createVendor} uploadAction={uploadVendorPhoto} vendor={vendor} />;
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -71,18 +76,6 @@ function DateForm({ marketId, date }: { marketId: string; date?: MarketDate }) {
     <TextArea label="Cancellation or date note" name="note" defaultValue={date?.note} />
     <label className="flex items-center gap-2 text-sm"><input name="is_canceled" type="checkbox" defaultChecked={date?.is_canceled} /> Canceled</label>
     <SubmitButton className={buttonClass} pendingLabel="Saving date...">{date ? "Save date" : "Add date"}</SubmitButton>
-  </form>;
-}
-
-function VendorForm({ vendor }: { vendor?: Vendor }) {
-  const direct = Boolean(vendor?.dropvine_direct_url);
-  return <form action={vendor ? updateVendor : createVendor} className="space-y-4 border border-black/10 bg-white/60 p-5">
-    {vendor ? <input type="hidden" name="id" value={vendor.id} /> : null}
-    <div className="grid gap-4 md:grid-cols-2"><Field label="Business name" name="business_name" defaultValue={vendor?.business_name} required /><Field label="Slug" name="slug" defaultValue={vendor?.slug} required /><Field label="Category" name="category" defaultValue={vendor?.category} required /><Field label="Dropvine Direct URL" name="dropvine_direct_url" defaultValue={vendor?.dropvine_direct_url} /></div>
-    {direct ? <p className="border border-green-700/30 bg-green-50 px-3 py-2 text-sm text-green-800">Linked to Dropvine Direct. Markets-native fields are disabled.</p> : null}
-    <div className="grid gap-4 md:grid-cols-2"><Field label="Photo URL" name="photo_url" defaultValue={vendor?.photo_url} disabled={direct} /><Field label="External URL" name="external_url" defaultValue={vendor?.external_url} disabled={direct} /></div>
-    <TextArea label="Blurb" name="blurb" defaultValue={vendor?.blurb} disabled={direct} />
-    <SubmitButton className={primaryButtonClass} pendingLabel="Saving vendor...">{vendor ? "Save vendor" : "Create vendor"}</SubmitButton>
   </form>;
 }
 

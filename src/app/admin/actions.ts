@@ -90,6 +90,32 @@ export async function uploadMarketPhotos(formData: FormData) {
   redirect(`/admin?market=${encodeURIComponent(marketId)}`);
 }
 
+export async function uploadVendorPhoto(formData: FormData) {
+  await requireAdmin();
+  const vendorId = requiredText(formData, "vendor_id");
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) throw new Error("Choose a photo to upload");
+  if (!marketPhotoTypes.has(photo.type)) throw new Error("Photos must be JPEG, PNG, GIF, WebP, or AVIF images");
+  if (photo.size > marketPhotoMaxBytes) throw new Error("Each photo must be 10 MB or smaller");
+
+  const rows = await (await request(`vendors?id=eq.${encodeURIComponent(vendorId)}&select=slug,photo_url`)).json() as { slug: string; photo_url: string | null }[];
+  const vendor = rows[0];
+  if (!vendor) throw new Error("Vendor not found");
+
+  const extension = photo.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `vendors/${vendorId}/${crypto.randomUUID()}.${extension}`;
+  const upload = await storageRequest(path, { method: "POST", headers: { "Content-Type": photo.type, "x-upsert": "false" }, body: await photo.arrayBuffer() });
+  if (!upload.ok) throw new Error(await upload.text());
+
+  const oldPath = vendor.photo_url ? storagePathFromUrl(vendor.photo_url) : null;
+  await request(`vendors?id=eq.${encodeURIComponent(vendorId)}`, jsonBody({ photo_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${marketPhotosBucket}/${path}` }, "PATCH"));
+  if (oldPath) await storageRequest(oldPath, { method: "DELETE" });
+
+  revalidatePath("/admin");
+  revalidatePath(`/vendors/${vendor.slug}`);
+  redirect("/admin");
+}
+
 function storagePathFromUrl(photoUrl: string) {
   const marker = `/storage/v1/object/public/${marketPhotosBucket}/`;
   const index = photoUrl.indexOf(marker);
@@ -287,7 +313,8 @@ export async function deleteMarketDate(formData: FormData) {
 }
 
 function vendorPayload(formData: FormData) {
-  const directUrl = text(formData.get("dropvine_direct_url"));
+  const useDropvineDirect = formData.get("use_dropvine_direct") === "on";
+  const directUrl = useDropvineDirect ? requiredText(formData, "dropvine_direct_url") : null;
   return {
     slug: requiredText(formData, "slug"),
     business_name: requiredText(formData, "business_name"),
