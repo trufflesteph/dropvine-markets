@@ -192,6 +192,14 @@ function importVendorPayload(row: ImportRow, businessName: string, slug: string)
   const directUrl = importText(row.dropvine_direct_url);
   return { slug, business_name: businessName, category: importText(row.category), photo_url: directUrl ? null : importText(row.photo_url), blurb: directUrl ? null : importText(row.blurb), dropvine_direct_url: directUrl, external_url: directUrl ? null : importText(row.external_url) };
 }
+function importExistingVendorPayload(row: ImportRow) {
+  const payload: Record<string, string> = {};
+  for (const field of ["category", "blurb", "photo_url", "external_url", "dropvine_direct_url"] as const) {
+    const value = importText(row[field]);
+    if (value) payload[field] = value;
+  }
+  return payload;
+}
 
 export type CsvImportResult = { created: number; existing: number; skipped: number };
 type ImportedVendor = { id: string; business_name: string; slug: string };
@@ -213,7 +221,10 @@ export async function importVendorsFromCsv(_previous: CsvImportResult | null, fo
     const businessName = importText(row.business_name)!;
     const existingVendor = vendorsByName.get(businessName.toLowerCase());
     let vendor: ImportedVendor | undefined = existingVendor;
-    if (vendor) existing += 1;
+    if (vendor) {
+      existing += 1;
+      await request(`vendors?id=eq.${encodeURIComponent(vendor.id)}`, jsonBody(importExistingVendorPayload(row), "PATCH"));
+    }
     else {
       const baseSlug = slugify(businessName); let slug = baseSlug; let suffix = 2;
       while (slugs.has(slug)) slug = `${baseSlug}-${suffix++}`;
