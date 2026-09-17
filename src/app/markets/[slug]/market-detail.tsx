@@ -84,11 +84,14 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                 type="button"
                 aria-label={`Find vendor ${index + 1}, ${link.vendor.business_name}, ${link.vendor.category}`}
                 aria-pressed={activeVendorId === link.vendor.id}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "z-10 h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 hover:h-8 hover:w-8"}`}
+                className={`group absolute -translate-x-1/2 -translate-y-1/2 border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "z-10 h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 hover:z-10 hover:h-8 hover:w-8"}`}
                 style={{ backgroundColor: categoryColor(link.vendor.category).background, color: categoryColor(link.vendor.category).foreground, left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
                 {index + 1}
+                <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0E0E0C] px-2 py-1 font-sans text-xs font-normal text-[#FAFAF7] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  {link.vendor.business_name}
+                </span>
               </button>
             ) : null)}
           </div>
