@@ -134,6 +134,8 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
               >
                 <a
                   href={vendorHref(link.vendor)}
+                  target={link.vendor.dropvine_direct_url ? "_blank" : undefined}
+                  rel={link.vendor.dropvine_direct_url ? "noopener noreferrer" : undefined}
                   onClick={() => selectVendor(link.vendor.id)}
                   className="flex min-h-28 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
                 >
