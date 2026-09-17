@@ -76,19 +76,21 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
         </div>
 
         {mapImageUrl ? (
-          <div className="relative overflow-hidden border border-black/10 bg-[#F2F0EA]">
-            <Image src={mapImageUrl} alt="Market vendor map" width={1600} height={900} sizes="(max-width: 1280px) 100vw, 1152px" unoptimized className="block h-auto w-full" />
+          <div className="market-map-surface relative w-full max-w-full overflow-hidden border border-black/10 bg-[#F2F0EA]">
+            <Image src={mapImageUrl} alt="Market vendor map" width={1600} height={900} sizes="(max-width: 1280px) 100vw, 1152px" unoptimized className="block h-auto w-full max-w-full" />
             {vendors.map((link, index) => link.map_x !== null && link.map_y !== null ? (
               <button
                 key={link.id}
                 type="button"
                 aria-label={`Find vendor ${index + 1}, ${link.vendor.business_name}, ${link.vendor.category}`}
                 aria-pressed={activeVendorId === link.vendor.id}
-                className={`group absolute -translate-x-1/2 -translate-y-1/2 border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "z-10 h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 hover:z-10 hover:h-8 hover:w-8"}`}
-                style={{ backgroundColor: categoryColor(link.vendor.category).background, color: categoryColor(link.vendor.category).foreground, left: `${link.map_x}%`, top: `${link.map_y}%` }}
+                className={`group absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center border-0 bg-transparent p-0 text-xs font-bold shadow-none transition-all sm:h-7 sm:w-7 ${activeVendorId === link.vendor.id ? "z-10 sm:h-9 sm:w-9" : "hover:z-10"}`}
+                style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
-                {index + 1}
+                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={{ backgroundColor: categoryColor(link.vendor.category).background, color: categoryColor(link.vendor.category).foreground }}>
+                  {index + 1}
+                </span>
                 <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0E0E0C] px-2 py-1 font-sans text-xs font-normal text-[#FAFAF7] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   {link.vendor.business_name}
                 </span>
