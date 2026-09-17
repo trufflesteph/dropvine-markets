@@ -112,8 +112,8 @@ export async function uploadVendorPhoto(formData: FormData) {
   if (oldPath) await storageRequest(oldPath, { method: "DELETE" });
 
   revalidatePath("/admin");
-  revalidatePath(`/vendors/${vendor.slug}`);
-  redirect("/admin");
+  revalidatePath(`/admin/vendors/${vendorId}`);
+  redirect(`/admin/vendors/${vendorId}`);
 }
 
 function storagePathFromUrl(photoUrl: string) {
@@ -336,9 +336,10 @@ export async function createVendor(formData: FormData) {
 export async function updateVendor(formData: FormData) {
   await requireAdmin();
   const id = requiredText(formData, "id");
-  await request(`vendors?id=eq.${encodeURIComponent(id)}`, jsonBody(vendorPayload(formData), "PATCH"));
+  const payload = vendorPayload(formData);
+  await request(`vendors?id=eq.${encodeURIComponent(id)}`, jsonBody(payload, "PATCH"));
   revalidatePath("/admin");
-  redirect("/admin");
+  redirect(`/admin/vendors/${encodeURIComponent(id)}`);
 }
 
 export async function deleteVendor(formData: FormData) {
