@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 
+import { vendorPinColor } from "@/lib/vendor-categories";
+
 export type MarketVendor = {
   id: string;
   map_x: number | null;
@@ -27,23 +29,6 @@ type MarketDetailProps = {
 
 function vendorHref(vendor: MarketVendor["vendor"]) {
   return vendor.dropvine_direct_url ?? `/vendors/${vendor.slug}`;
-}
-
-const categoryColors: Record<string, { background: string; foreground: string }> = {
-  bakery: { background: "#F2C14E", foreground: "#241B00" },
-  beverage: { background: "#7BC8A4", foreground: "#092A1A" },
-  food: { background: "#E8875A", foreground: "#321207" },
-  produce: { background: "#8FBE5D", foreground: "#122007" },
-  artisan: { background: "#B79AD8", foreground: "#21102F" },
-  crafts: { background: "#B79AD8", foreground: "#21102F" },
-  vintage: { background: "#D99A9A", foreground: "#321313" },
-  wellness: { background: "#78B7C9", foreground: "#08222B" },
-};
-
-function categoryColor(category: string) {
-  const normalized = category.toLowerCase();
-  const match = Object.entries(categoryColors).find(([name]) => normalized.includes(name));
-  return match?.[1] ?? { background: "#D5D0C5", foreground: "#211F1A" };
 }
 
 export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors }: MarketDetailProps) {
@@ -88,7 +73,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                 style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
-                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={{ backgroundColor: categoryColor(link.vendor.category).background, color: categoryColor(link.vendor.category).foreground }}>
+                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={vendorPinColor(link.vendor.category)}>
                   {index + 1}
                 </span>
                 <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0E0E0C] px-2 py-1 font-sans text-xs font-normal text-[#FAFAF7] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -123,15 +108,15 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
         </div>
 
         {vendors.length ? (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {vendors.map((link, index) => {
-              const color = categoryColor(link.vendor.category);
+              const color = vendorPinColor(link.vendor.category);
               return (
               <article
                 key={link.id}
                 ref={(element) => { vendorRefs.current[link.vendor.id] = element; }}
                 tabIndex={-1}
-                className={`border-l-4 transition-colors focus:outline-none ${activeVendorId === link.vendor.id ? "bg-[#F2F0EA]" : ""}`}
+                className={`min-w-0 border-l-4 transition-colors focus:outline-none ${activeVendorId === link.vendor.id ? "bg-[#F2F0EA]" : ""}`}
                 style={{ borderLeftColor: color.background }}
               >
                 <a
@@ -139,7 +124,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   target={link.vendor.dropvine_direct_url ? "_blank" : undefined}
                   rel={link.vendor.dropvine_direct_url ? "noopener noreferrer" : undefined}
                   onClick={() => selectVendor(link.vendor.id)}
-                  className="flex min-h-28 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
+                  className="flex min-h-28 min-w-0 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
                 >
                   <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-[#F2F0EA]">
                     {link.vendor.photo_url ? <Image src={link.vendor.photo_url} alt="" fill sizes="96px" className="object-cover" /> : null}

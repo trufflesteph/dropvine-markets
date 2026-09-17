@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import SubmitButton from "./submit-button";
+import { vendorCategories } from "@/lib/vendor-categories";
 
 type Vendor = {
   id: string;
@@ -38,7 +39,7 @@ export default function VendorForm({ vendor, saveAction, uploadAction }: VendorF
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Business name" name="business_name" defaultValue={vendor?.business_name} />
         <Field label="Slug" name="slug" defaultValue={vendor?.slug} />
-        <Field label="Business category" name="category" defaultValue={vendor?.category} />
+        <label className="block text-sm"><span>Business category</span><select className={inputClass} name="category" defaultValue={vendor?.category ?? ""} required><option value="">Select a category</option>{vendorCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input name="use_dropvine_direct" type="checkbox" checked={direct} onChange={(event) => setDirect(event.target.checked)} />

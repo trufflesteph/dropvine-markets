@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { vendorCategories } from "@/lib/vendor-categories";
 
 import { hasAdminSession } from "@/lib/admin-auth";
 import { supabaseAdminFetch } from "@/lib/supabase-admin";
@@ -181,6 +182,7 @@ function importRowError(row: ImportRow) {
   const errors: string[] = [];
   if (!businessName) errors.push("Missing business name");
   if (!category) errors.push("Missing category");
+  if (category && !vendorCategories.includes(category as (typeof vendorCategories)[number])) errors.push("Invalid category");
   if (rawMapX && (mapX === null || mapX < 0 || mapX > 100)) errors.push("Map X must be 0-100");
   if (rawMapY && (mapY === null || mapY < 0 || mapY > 100)) errors.push("Map Y must be 0-100");
   if (urls.some((url) => !validUrl(url))) errors.push("Malformed URL");
@@ -315,10 +317,14 @@ export async function deleteMarketDate(formData: FormData) {
 function vendorPayload(formData: FormData) {
   const useDropvineDirect = formData.get("use_dropvine_direct") === "on";
   const directUrl = useDropvineDirect ? requiredText(formData, "dropvine_direct_url") : null;
+  const category = requiredText(formData, "category");
+  if (!vendorCategories.includes(category as (typeof vendorCategories)[number])) {
+    throw new Error("Invalid vendor category");
+  }
   return {
     slug: requiredText(formData, "slug"),
     business_name: requiredText(formData, "business_name"),
-    category: requiredText(formData, "category"),
+    category,
     photo_url: directUrl ? null : text(formData.get("photo_url")),
     blurb: directUrl ? null : text(formData.get("blurb")),
     dropvine_direct_url: directUrl,

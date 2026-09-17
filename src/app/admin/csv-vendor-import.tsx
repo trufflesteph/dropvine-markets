@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+
+import { vendorCategories } from "@/lib/vendor-categories";
 import type { CsvImportResult } from "./actions";
 
 type Props = { marketId: string; action: (previous: CsvImportResult | null, formData: FormData) => Promise<CsvImportResult> };
@@ -22,6 +24,7 @@ function parseCsv(input: string): CsvRow[] {
     const parsed = Object.fromEntries(columns.map((column) => [column, values[headers.indexOf(column)]?.trim() ?? ""])) as unknown as CsvRow;
     const errors: string[] = [];
     if (!parsed.business_name) errors.push("Missing business name"); if (!parsed.category) errors.push("Missing category");
+    else if (!vendorCategories.includes(parsed.category as (typeof vendorCategories)[number])) errors.push("Invalid category");
     for (const coordinate of ["map_x", "map_y"] as const) if (parsed[coordinate] && (!Number.isFinite(Number(parsed[coordinate])) || Number(parsed[coordinate]) < 0 || Number(parsed[coordinate]) > 100)) errors.push(`${coordinate} must be 0-100`);
     for (const urlField of ["dropvine_direct_url", "photo_url", "external_url"] as const) if (parsed[urlField]) { try { const url = new URL(parsed[urlField]); if (!/^https?:$/.test(url.protocol)) errors.push(`${urlField} is malformed`); } catch { errors.push(`${urlField} is malformed`); } }
     return { ...parsed, errors };
