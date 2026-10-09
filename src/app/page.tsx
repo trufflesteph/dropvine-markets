@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
+import StallPlaceholder from "@/components/stall-placeholder";
+import { focusRingClass, primaryButtonClass } from "@/components/styles";
+import { formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
 import { supabasePublicFetch } from "@/lib/supabase-public";
-import MarketGrid from "./market-grid";
+import MarketGrid, { type GridMarket } from "./market-grid";
 
 type Market = {
   id: string;
@@ -11,6 +15,7 @@ type Market = {
   city: string;
   state: string;
   hero_image_url: string | null;
+  market_vendor_links: { count: number }[];
 };
 
 type MarketDate = {
@@ -23,10 +28,6 @@ type MarketPhoto = {
   photo_url: string;
   sort_order: number;
 };
-
-function todayUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export async function generateMetadata(): Promise<Metadata> {
   const response = await supabasePublicFetch("markets?status=eq.published&select=hero_image_url&hero_image_url=not.is.null&order=name.asc");
@@ -45,13 +46,13 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-async function fetchPublishedMarkets() {
+async function fetchPublishedMarkets(): Promise<GridMarket[]> {
   const [marketResponse, dateResponse, photosResponse] = await Promise.all([
     supabasePublicFetch(
-      "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url&order=name.asc",
+      "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url,market_vendor_links(count)&order=name.asc",
     ),
     supabasePublicFetch(
-      `market_dates?is_canceled=eq.false&date=gte.${todayUtc()}&select=market_id,date&order=date.asc`,
+      `market_dates?is_canceled=eq.false&date=gte.${todayInLosAngeles()}&select=market_id,date&order=date.asc`,
     ),
     supabasePublicFetch(
       "market_photos?select=market_id,photo_url,sort_order&order=sort_order.asc",
@@ -92,27 +93,77 @@ async function fetchPublishedMarkets() {
     }
   }
 
-  return markets.map((market) => ({
+  return markets.map(({ market_vendor_links, ...market }) => ({
     ...market,
     hero_image_url: firstPhotoByMarket.get(market.id) ?? market.hero_image_url,
     next_date: nextDates.get(market.id) ?? null,
     next_date_end: consecutiveEndDates.get(market.id) ?? null,
+    vendor_count: market_vendor_links[0]?.count ?? 0,
   }));
+}
+
+// The upcoming market whose date range ends soonest (today or later, Pacific time); ties go to the earlier start.
+function findNextUp(markets: GridMarket[]) {
+  const today = todayInLosAngeles();
+  return markets
+    .filter((market): market is GridMarket & { next_date: string } => Boolean(market.next_date))
+    .map((market) => ({ market, start: market.next_date, end: market.next_date_end ?? market.next_date }))
+    .filter(({ end }) => end >= today)
+    .sort((first, second) => first.end.localeCompare(second.end) || first.start.localeCompare(second.start))[0]?.market ?? null;
 }
 
 export default async function Home() {
   const markets = await fetchPublishedMarkets();
+  const nextUp = findNextUp(markets);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-8 sm:py-14">
-      <header className="mb-12 max-w-2xl">
-        <p className="text-sm uppercase tracking-[0.2em] text-black/50">Dropvine Markets</p>
-        <h1 className="mt-5 font-serif text-4xl leading-tight sm:text-5xl">Building community one market at a time</h1>
-      </header>
-      <MarketGrid markets={markets} />
-      <p className="mt-16 border-t border-black/10 pt-6 text-sm text-black/55">
-        See a market that should be here? Let us know: <a className="underline decoration-black/25 underline-offset-4 hover:decoration-black" href="mailto:hello@dropvine.pro">hello@dropvine.pro</a>
-      </p>
+    <main>
+      <section className="bg-cream px-5 pt-10 pb-12 sm:px-10 sm:pt-14 sm:pb-[72px] lg:px-[72px]">
+        <div className="mx-auto grid max-w-[1296px] gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
+          <div>
+            <h1 className="font-serif text-[50px] leading-[0.98] font-medium tracking-[-1px] text-navy sm:text-[80px] sm:tracking-[-1.5px]">
+              Building community <span className="text-forest">one market at a time.</span>
+            </h1>
+            <p className="mt-6 max-w-[440px] text-xl leading-normal text-ink-muted">Find local markets, and meet the makers who sell there.</p>
+            <a href="#markets" className={`mt-8 ${primaryButtonClass}`}>Find a market</a>
+          </div>
+
+          <div className="relative">
+            <div className="relative min-h-[220px] overflow-hidden rounded-3xl bg-sky sm:min-h-[540px]">
+              {nextUp?.hero_image_url ? (
+                <Image
+                  src={nextUp.hero_image_url}
+                  alt={nextUp.name}
+                  fill
+                  preload
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className="object-cover"
+                />
+              ) : (
+                <StallPlaceholder className="w-[180px] sm:w-[260px]" tileClassName={nextUp ? "sm:pb-48" : ""} />
+              )}
+            </div>
+            {nextUp ? (
+              <div className="mt-4 rounded-2xl border-[1.5px] border-line bg-white p-[18px] sm:absolute sm:inset-x-6 sm:bottom-6 sm:mt-0 sm:border-0 sm:px-7 sm:py-6">
+                <span className="inline-block rounded-full bg-clay px-3 py-1.5 text-xs leading-none font-bold tracking-[1.6px] text-white uppercase">Next up</span>
+                <p className="mt-3 font-serif text-2xl leading-[1.1] font-semibold text-navy sm:text-[28px]">{nextUp.name}</p>
+                <p className="mt-2 text-[15px] text-ink-muted">
+                  {formatDateRange(nextUp.next_date, nextUp.next_date_end)} · {formatPlace(nextUp.city, nextUp.state, nextUp.vendor_count)}
+                </p>
+                <a href={`/markets/${nextUp.slug}`} className={`mt-1 inline-flex min-h-11 items-center text-base font-bold text-clay hover:text-clay-dark ${focusRingClass}`}>
+                  See the market →
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <section id="markets" aria-labelledby="markets-heading" className="bg-paper px-5 py-10 sm:px-10 sm:pt-[72px] sm:pb-[88px] lg:px-[72px]">
+        <div className="mx-auto max-w-[1296px]">
+          <MarketGrid markets={markets} />
+        </div>
+      </section>
     </main>
   );
 }

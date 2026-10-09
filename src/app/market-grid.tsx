@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 
-type Market = {
+import StallPlaceholder from "@/components/stall-placeholder";
+import { focusRingClass } from "@/components/styles";
+import { formatDateRange, formatPlace } from "@/lib/market-format";
+
+export type GridMarket = {
   id: string;
   name: string;
   slug: string;
@@ -13,42 +17,15 @@ type Market = {
   hero_image_url: string | null;
   next_date: string | null;
   next_date_end: string | null;
+  vendor_count: number;
 };
 
 type DateFilter = "all" | "weekend" | "month";
 type SortOrder = "soonest" | "furthest";
 
-const selectClass = "border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-black";
-
-function formatDate(value: string | null) {
-  if (!value) return "Dates coming soon";
-
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00Z`));
-}
-
-function formatDateDisplay(start: string | null, end: string | null) {
-  if (!start || !end || start === end) return formatDate(start);
-
-  const startDate = new Date(`${start}T00:00:00Z`);
-  const endDate = new Date(`${end}T00:00:00Z`);
-  const monthAndDay = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-
-  if (startDate.getUTCFullYear() === endDate.getUTCFullYear() && startDate.getUTCMonth() === endDate.getUTCMonth()) {
-    const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(startDate);
-    return `${month} ${startDate.getUTCDate()}–${endDate.getUTCDate()}`;
-  }
-
-  return `${monthAndDay.format(startDate)} – ${monthAndDay.format(endDate)}`;
-}
+const labelClass = "flex w-full items-center gap-3 sm:w-auto";
+const labelTextClass = "w-20 shrink-0 text-[15px] font-medium text-ink-muted sm:w-auto";
+const selectClass = "min-h-12 min-w-0 flex-1 rounded-[10px] border-[1.5px] border-line-strong bg-white px-3 text-[15px] font-medium text-navy outline-none focus-visible:border-navy focus-visible:ring-2 focus-visible:ring-navy/25 sm:min-h-11 sm:flex-none";
 
 function isInDateFilter(value: string | null, filter: DateFilter) {
   if (filter === "all" || !value) return true;
@@ -71,7 +48,7 @@ function isInDateFilter(value: string | null, filter: DateFilter) {
   return date >= weekendStart && date <= weekendEnd;
 }
 
-export default function MarketGrid({ markets }: { markets: Market[] }) {
+export default function MarketGrid({ markets }: { markets: GridMarket[] }) {
   const [type, setType] = useState("all");
   const [location, setLocation] = useState("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
@@ -98,25 +75,32 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
   }, [dateFilter, location, markets, sortOrder, type]);
 
   return (
-    <section aria-label="Browse markets">
-      <div className="mb-8 flex flex-col gap-4 border-y border-black/10 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-black/50">Type</span>
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 id="markets-heading" className="font-serif text-4xl leading-tight font-medium text-navy sm:text-5xl">Upcoming markets</h2>
+        <p className="text-[15px] text-ink-muted" aria-live="polite">
+          {filteredMarkets.length} {filteredMarkets.length === 1 ? "market" : "markets"}
+        </p>
+      </div>
+
+      <div className="mt-6 mb-8 flex flex-col gap-3 border-y border-line py-[18px] lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+          <label className={labelClass}>
+            <span className={labelTextClass}>Type</span>
             <select className={selectClass} value={type} onChange={(event) => setType(event.target.value)}>
               <option value="all">All types</option>
               {types.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-black/50">Location</span>
+          <label className={labelClass}>
+            <span className={labelTextClass}>Location</span>
             <select className={selectClass} value={location} onChange={(event) => setLocation(event.target.value)}>
               <option value="all">All locations</option>
               {locations.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-black/50">Date</span>
+          <label className={labelClass}>
+            <span className={labelTextClass}>Date</span>
             <select className={selectClass} value={dateFilter} onChange={(event) => setDateFilter(event.target.value as DateFilter)}>
               <option value="all">Any upcoming date</option>
               <option value="weekend">This weekend</option>
@@ -124,8 +108,8 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
             </select>
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-black/50">Sort</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Sort</span>
           <select className={selectClass} value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}>
             <option value="soonest">Soonest first</option>
             <option value="furthest">Furthest first</option>
@@ -134,31 +118,36 @@ export default function MarketGrid({ markets }: { markets: Market[] }) {
       </div>
 
       {filteredMarkets.length ? (
-        <div className="grid gap-6">
+        <ul className="grid gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
           {filteredMarkets.map((market) => (
-            <article key={market.id} className="group rounded-md border border-black/10 bg-white/60 p-3 shadow-sm">
-              <a href={`/markets/${market.slug}`}>
-                <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5">
-                  <div
-                    className="relative aspect-[4/3] overflow-hidden border border-black/10 bg-[#F2F0EA]"
-                  >
-                    {market.hero_image_url ? <Image src={market.hero_image_url} alt={market.name} fill sizes="(max-width: 768px) 55vw, 35vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.01]" /> : null}
-                    {!market.hero_image_url ? <div className="flex h-full items-center justify-center px-6 text-center font-serif text-2xl text-black/35">Dropvine Markets</div> : null}
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <h2 className="font-serif text-2xl leading-tight">{market.name}</h2>
-                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-black/45">{market.market_type}</p>
-                    <p className="mt-4 text-sm text-black/60">{market.city}, {market.state}</p>
-                    <p className="mt-2 text-sm">{formatDateDisplay(market.next_date, market.next_date_end)}</p>
-                  </div>
+            <li key={market.id}>
+              <a
+                href={`/markets/${market.slug}`}
+                className={`group flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white transition-[border-color,box-shadow] hover:border-line-hover hover:shadow-[0_10px_30px_-12px_rgba(29,52,97,0.18)] ${focusRingClass}`}
+              >
+                <div className="relative h-[170px] bg-sky sm:h-[220px]">
+                  {market.hero_image_url ? (
+                    <Image src={market.hero_image_url} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
+                  ) : (
+                    <StallPlaceholder className="w-[130px] sm:w-[160px]" />
+                  )}
+                </div>
+                <div className="px-6 pt-5 pb-6">
+                  <p className="text-[13px] font-bold tracking-[1.8px] text-clay uppercase">
+                    {formatDateRange(market.next_date, market.next_date_end)} · {market.market_type}
+                  </p>
+                  <h3 className="mt-2 font-serif text-[25px] leading-[1.1] font-semibold text-navy sm:text-[28px]">{market.name}</h3>
+                  <p className="mt-2 text-[15px] text-ink-muted">{formatPlace(market.city, market.state, market.vendor_count)}</p>
                 </div>
               </a>
-            </article>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
-        <p className="border border-black/10 px-5 py-10 text-center text-sm text-black/60">No markets match those filters.</p>
+        <p className="rounded-[20px] border border-line bg-white px-5 py-10 text-center text-[15px] text-ink-muted">
+          No upcoming markets match. Know of one? Suggest it below.
+        </p>
       )}
-    </section>
+    </>
   );
 }
