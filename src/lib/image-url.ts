@@ -2,7 +2,7 @@ export const defaultShareImage = {
   url: "/brand/og-default.png",
   width: 1200,
   height: 630,
-  alt: "Dropvine Markets: building community one market at a time.",
+  alt: "Dropvine Markets: One of a kind. Close to home.",
 };
 
 const imageExtension = /\.(avif|gif|jpe?g|png|webp)$/i;

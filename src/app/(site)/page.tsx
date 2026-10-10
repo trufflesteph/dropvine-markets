@@ -116,7 +116,7 @@ export default async function Home() {
         <div className="mx-auto grid max-w-[1296px] gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
           <div>
             <h1 className="font-serif text-[50px] leading-[0.98] font-medium tracking-[-1px] text-navy sm:text-[80px] sm:tracking-[-1.5px]">
-              Building community <span className="text-forest">one market at a time.</span>
+              One of a kind. <span className="block text-forest">Close to home.</span>
             </h1>
             <p className="mt-6 max-w-[440px] text-xl leading-normal text-ink-muted">Find local markets, and meet the makers who sell there.</p>
             <a href="#markets" className={`mt-8 ${primaryButtonClass}`}>Find a market</a>
