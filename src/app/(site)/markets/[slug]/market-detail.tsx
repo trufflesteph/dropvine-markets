@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 
-import { vendorPinColor } from "@/lib/vendor-categories";
+import { categoryGroups, categoryGroupsFor, categoryPinColors } from "@/lib/category-groups";
 
 export type MarketVendor = {
   id: string;
@@ -44,6 +44,12 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
     }
   }
 
+  // Legend entries: only groups with at least one pin on this map, in the standard group order.
+  const pinnedGroupSlugs = mapImageUrl
+    ? categoryGroupsFor(vendors.filter((link) => link.map_x !== null && link.map_y !== null).map((link) => link.vendor.category))
+    : [];
+  const legendGroups = categoryGroups.filter((group) => pinnedGroupSlugs.includes(group.slug));
+
   const hasCoordinates = latitude !== null && longitude !== null;
   const mapUrl = hasCoordinates
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${longitude! - 0.02}%2C${latitude! - 0.015}%2C${longitude! + 0.02}%2C${latitude! + 0.015}&layer=mapnik&marker=${latitude}%2C${longitude}`
@@ -73,7 +79,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                 style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
-                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={vendorPinColor(link.vendor.category)}>
+                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={categoryPinColors(link.vendor.category)}>
                   {index + 1}
                 </span>
                 <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0E0E0C] px-2 py-1 font-sans text-xs font-normal text-[#FAFAF7] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -96,6 +102,20 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
             Location map unavailable.
           </div>
         )}
+
+        {legendGroups.length ? (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:gap-x-5">
+            <p id="map-legend-label" className="shrink-0 text-sm font-medium text-navy">Pin colors</p>
+            <ul aria-labelledby="map-legend-label" className="grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:flex-wrap sm:gap-x-5">
+              {legendGroups.map((group) => (
+                <li key={group.slug} className="flex items-center gap-2 text-sm text-navy">
+                  <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: group.color }} />
+                  {group.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       <section id="market-vendors" aria-labelledby="market-vendors-heading" className="mt-20 scroll-mt-8 border-t border-black/10 pt-10">
@@ -110,14 +130,14 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
         {vendors.length ? (
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             {vendors.map((link, index) => {
-              const color = vendorPinColor(link.vendor.category);
+              const color = categoryPinColors(link.vendor.category);
               return (
               <article
                 key={link.id}
                 ref={(element) => { vendorRefs.current[link.vendor.id] = element; }}
                 tabIndex={-1}
                 className={`min-w-0 border-l-4 transition-colors focus:outline-none ${activeVendorId === link.vendor.id ? "bg-[#F2F0EA]" : ""}`}
-                style={{ borderLeftColor: color.background }}
+                style={{ borderLeftColor: color.backgroundColor }}
               >
                 <a
                   href={vendorHref(link.vendor)}
@@ -134,7 +154,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                     <h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3>
                     <p className="mt-1 text-sm text-black/55">{link.vendor.category}</p>
                   </div>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={{ backgroundColor: color.background, color: color.foreground }}>{index + 1}</span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={color}>{index + 1}</span>
                 </a>
               </article>
               );

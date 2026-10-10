@@ -3,6 +3,7 @@ import Image from "next/image";
 
 import StallPlaceholder from "@/components/stall-placeholder";
 import { focusRingClass, primaryButtonClass } from "@/components/styles";
+import { categoryGroupsFor, parseCategoryParam } from "@/lib/category-groups";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { currentRun, formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
 import { supabasePublicFetch } from "@/lib/supabase-public";
@@ -16,7 +17,11 @@ type Market = {
   city: string;
   state: string;
   hero_image_url: string | null;
-  market_vendor_links: { count: number }[];
+};
+
+type VendorLink = {
+  market_id: string;
+  vendors: { category: string } | null;
 };
 
 type MarketDate = {
@@ -50,9 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function fetchPublishedMarkets(): Promise<GridMarket[]> {
-  const [marketResponse, dateResponse, photosResponse] = await Promise.all([
+  const [marketResponse, dateResponse, photosResponse, vendorLinksResponse] = await Promise.all([
     supabasePublicFetch(
-      "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url,market_vendor_links(count)&order=name.asc",
+      "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url&order=name.asc",
     ),
     // All dates, not just upcoming ones, so a market on day 2 of 2 still shows its full range.
     supabasePublicFetch(
@@ -61,9 +66,14 @@ async function fetchPublishedMarkets(): Promise<GridMarket[]> {
     supabasePublicFetch(
       "market_photos?select=market_id,photo_url,sort_order&order=sort_order.asc",
     ),
+    // One query for every market's vendors. Like the market page, this uses the public key, so row-level security
+    // only returns links for published markets and vendors the public can see; hidden vendors come back as null.
+    supabasePublicFetch(
+      "market_vendor_links?select=market_id,vendors(category)",
+    ),
   ]);
 
-  if (!marketResponse.ok || !dateResponse.ok || !photosResponse.ok) {
+  if (!marketResponse.ok || !dateResponse.ok || !photosResponse.ok || !vendorLinksResponse.ok) {
     throw new Error("Unable to load published markets");
   }
 
@@ -83,16 +93,24 @@ async function fetchPublishedMarkets(): Promise<GridMarket[]> {
     datesByMarket.set(date.market_id, [...(datesByMarket.get(date.market_id) ?? []), date.date]);
   }
 
+  const vendorCategoriesByMarket = new Map<string, string[]>();
+  for (const link of (await vendorLinksResponse.json()) as VendorLink[]) {
+    if (!link.vendors) continue;
+    vendorCategoriesByMarket.set(link.market_id, [...(vendorCategoriesByMarket.get(link.market_id) ?? []), link.vendors.category]);
+  }
+
   const today = todayInLosAngeles();
-  return markets.map(({ market_vendor_links, ...market }) => {
+  return markets.map((market) => {
     const run = currentRun(datesByMarket.get(market.id) ?? [], today);
+    const vendorCategories = vendorCategoriesByMarket.get(market.id) ?? [];
     return {
       ...market,
       hero_image_url: marketImageUrl(firstPhotoByMarket.get(market.id), market.hero_image_url),
       range_start: run?.start ?? null,
       next_date: run?.next ?? null,
       next_date_end: run?.end ?? null,
-      vendor_count: market_vendor_links[0]?.count ?? 0,
+      vendor_count: vendorCategories.length,
+      category_groups: categoryGroupsFor(vendorCategories),
     };
   });
 }
@@ -106,8 +124,8 @@ function findNextUp(markets: GridMarket[]) {
     .sort((first, second) => first.next_date_end.localeCompare(second.next_date_end) || first.range_start.localeCompare(second.range_start))[0] ?? null;
 }
 
-export default async function Home() {
-  const markets = await fetchPublishedMarkets();
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const [markets, { category }] = await Promise.all([fetchPublishedMarkets(), searchParams]);
   const nextUp = findNextUp(markets);
 
   return (
@@ -155,11 +173,8 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="markets" aria-labelledby="markets-heading" className="bg-paper px-5 py-10 sm:px-10 sm:pt-[72px] sm:pb-[88px] lg:px-[72px]">
-        <div className="mx-auto max-w-[1296px]">
-          <MarketGrid markets={markets} />
-        </div>
-      </section>
+      {/* Renders the "Shop by category" band and the Upcoming markets section, which share filter state. */}
+      <MarketGrid markets={markets} initialCategories={parseCategoryParam(category)} />
     </main>
   );
 }
