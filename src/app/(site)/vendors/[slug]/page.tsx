@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 
+import { absoluteUrl } from "@/lib/site-url";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import BackButton from "./back-button";
 
@@ -56,6 +57,7 @@ export async function generateMetadata({ params }: PageProps<"/vendors/[slug]">)
   return {
     title: `${vendor.business_name} | Dropvine Markets`,
     description,
+    alternates: { canonical: absoluteUrl(`/vendors/${encodeURIComponent(vendor.slug)}`) },
     openGraph: {
       title: `${vendor.business_name} | Dropvine Markets`,
       description,

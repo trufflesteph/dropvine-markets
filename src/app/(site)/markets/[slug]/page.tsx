@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { todayInLosAngeles } from "@/lib/market-format";
+import { absoluteUrl } from "@/lib/site-url";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketDetail, { type MarketVendor } from "./market-detail";
 import MarketPhotoCarousel from "./market-photo-carousel";
@@ -93,6 +94,7 @@ export async function generateMetadata({ params }: PageProps<"/markets/[slug]">)
   return {
     title: `${market.name} | Dropvine Markets`,
     description,
+    alternates: { canonical: absoluteUrl(`/markets/${encodeURIComponent(market.slug)}`) },
     openGraph: {
       title: `${market.name} | Dropvine Markets`,
       description,

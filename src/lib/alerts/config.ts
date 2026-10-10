@@ -1,10 +1,11 @@
+import { siteUrl } from "../site-url.ts";
 import type { AlertsConfig } from "./types.ts";
 
 export type ServerAlertsConfig = AlertsConfig & { resendApiKey: string | null; fromEmail: string };
 
 export function alertsConfig(): ServerAlertsConfig {
   return {
-    siteUrl: (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://dropvinemarkets.com").replace(/\/+$/, ""),
+    siteUrl,
     mailingAddress: process.env.ALERTS_MAILING_ADDRESS?.trim() || null,
     resendApiKey: process.env.RESEND_API_KEY?.trim() || null,
     fromEmail: process.env.ALERTS_FROM_EMAIL?.trim() || "Dropvine Markets <alerts@dropvinemarkets.com>",

@@ -3,6 +3,7 @@ import { DM_Sans, EB_Garamond } from "next/font/google";
 import Script from "next/script";
 
 import { defaultShareImage } from "@/lib/image-url";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -20,7 +21,7 @@ const ebGaramond = EB_Garamond({
 export const metadata: Metadata = {
   title: "Dropvine Markets",
   description: "Find local markets worth wandering through.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://dropvinemarkets.com"),
+  metadataBase: new URL(siteUrl),
   openGraph: {
     type: "website",
     siteName: "Dropvine Markets",

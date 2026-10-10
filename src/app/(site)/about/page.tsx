@@ -3,10 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { primaryButtonClass } from "@/components/styles";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "About | Dropvine Markets",
   description: "Dropvine Markets brings local markets and the makers who sell there into one place, so you can find them and shop small.",
+  alternates: { canonical: absoluteUrl("/about") },
 };
 
 export default function AboutPage() {

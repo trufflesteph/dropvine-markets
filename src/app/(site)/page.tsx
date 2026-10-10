@@ -5,6 +5,7 @@ import StallPlaceholder from "@/components/stall-placeholder";
 import { focusRingClass, primaryButtonClass } from "@/components/styles";
 import { categoryGroupsFor, parseCategoryParam } from "@/lib/category-groups";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
+import { absoluteUrl } from "@/lib/site-url";
 import { currentRun, formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketGrid, { type GridMarket } from "./market-grid";
@@ -44,6 +45,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Markets | Dropvine",
     description: "Find local markets worth wandering through.",
+    // Category-filtered URLs (?category=…) all point back to the plain homepage.
+    alternates: { canonical: absoluteUrl("/") },
     openGraph: {
       title: "Markets | Dropvine",
       description: "Find local markets worth wandering through.",
