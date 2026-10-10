@@ -115,8 +115,10 @@ export default async function Home() {
       <section className="bg-cream px-5 pt-10 pb-12 sm:px-10 sm:pt-14 sm:pb-[72px] lg:px-[72px]">
         <div className="mx-auto grid max-w-[1296px] gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
           <div>
-            <h1 className="font-serif text-[50px] leading-[0.98] font-medium tracking-[-1px] text-navy sm:text-[80px] sm:tracking-[-1.5px]">
-              One of a kind. <span className="block text-forest">Close to home.</span>
+            {/* Sized so "One-of-a-kind finds." (about 7.8em wide) stays on one line: fluid on phones, 66px when stacked,
+                and tied to the half-width column from lg up. */}
+            <h1 className="font-serif text-[length:clamp(32px,calc((100vw_-_40px)/8.2),42px)] leading-none font-medium tracking-[-0.018em] text-navy sm:text-[66px] lg:text-[length:clamp(44px,calc((100vw_-_200px)/16.4),66px)]">
+              <span className="whitespace-nowrap">One-of-a-kind</span> finds. <span className="block text-forest">Close to home.</span>
             </h1>
             <p className="mt-6 max-w-[440px] text-xl leading-normal text-ink-muted">Find local markets, and meet the makers who sell there.</p>
             <a href="#markets" className={`mt-8 ${primaryButtonClass}`}>Find a market</a>
