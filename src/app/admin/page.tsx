@@ -4,15 +4,19 @@ import Link from "next/link";
 import {
   createMarket, createMarketDate, createMarketVendorLink,
   deleteMarket, deleteMarketDate, deleteMarketVendorLink,
-  deleteMarketPhoto, importVendorsFromCsv, reorderMarketPhotos, updateMarket, updateMarketDate, updateMarketVendorLink, uploadMarketPhotos,
+  deleteMarketPhoto, importVendorsFromCsv, reorderMarketPhotos, sendMarketAlertsAction, updateMarket, updateMarketDate, updateMarketVendorLink, uploadMarketPhotos,
 } from "./actions";
+import { alertsConfig } from "@/lib/alerts/config";
+import { type MarketLocation, planMarketAlerts, resolveMarketLocation } from "@/lib/alerts/send";
+import { countConfirmedSubscribers, supabaseAlertStore } from "@/lib/alerts/store-supabase";
 import CsvVendorImport from "./csv-vendor-import";
+import SendAlertsControl from "./send-alerts-control";
 import MarketPhotoManager from "./market-photo-manager";
 import SubmitButton from "./submit-button";
 
 type Market = {
   id: string; slug: string; name: string; market_type: string; description: string | null;
-  city: string; state: string; address: string | null; latitude: number | null; longitude: number | null;
+  city: string; state: string; address: string | null; zip?: string | null; latitude: number | null; longitude: number | null;
   hero_image_url: string | null; map_image_url: string | null; organizer_name: string | null;
   organizer_url: string | null; status: "draft" | "published";
   photos?: MarketPhoto[];
@@ -21,15 +25,62 @@ type MarketDate = { id: string; market_id: string; date: string; start_time: str
 type Vendor = { id: string; slug: string; business_name: string; category: string; photo_url: string | null; blurb: string | null; dropvine_direct_url: string | null; external_url: string | null };
 type Link = { id: string; market_id: string; vendor_id: string; map_x: number | null; map_y: number | null; booth_label: string | null; featured: boolean; vendor: Vendor };
 type MarketPhoto = { id: string; market_id: string; photo_url: string; sort_order: number };
-type AdminPageProps = { searchParams: Promise<{ error?: string; market?: string; new?: string }> };
+type AdminPageProps = { searchParams: Promise<{ error?: string; market?: string; new?: string; alerts?: string }> };
+
+// Sending alerts runs inside this page's server action; allow time for paced batches.
+export const maxDuration = 300;
+
+type AlertsPanelData =
+  | { state: "unavailable" }
+  | { state: "draft" | "no-location" | "no-email"; total: number }
+  | { state: "ready"; total: number; recipients: number; alreadySent: number; location: MarketLocation };
+
+async function loadAlertsPanel(market: Market): Promise<AlertsPanelData> {
+  try {
+    const total = await countConfirmedSubscribers();
+    if (market.status !== "published") return { state: "draft", total };
+    const location = await resolveMarketLocation(supabaseAlertStore, { latitude: market.latitude, longitude: market.longitude, zip: market.zip ?? null });
+    if (!location) return { state: "no-location", total };
+    if (!alertsConfig().resendApiKey) return { state: "no-email", total };
+    const plan = await planMarketAlerts(supabaseAlertStore, market.id, location);
+    return { state: "ready", total, recipients: plan.recipients.length, alreadySent: plan.alreadySent, location };
+  } catch (error) {
+    // Most likely the alerts migration hasn't been run yet; keep the rest of admin working.
+    console.error("[alerts] Admin panel unavailable:", error);
+    return { state: "unavailable" };
+  }
+}
+
+async function loadSubscriberTotal() {
+  try { return await countConfirmedSubscribers(); } catch { return null; }
+}
+
+function AlertsPanel({ market, data, result }: { market: Market; data: AlertsPanelData; result?: string }) {
+  const [sent, failed, skipped] = (result ?? "").split(".").map(Number);
+  const where = data.state === "ready"
+    ? data.location.source === "coordinates" ? `this market’s coordinates (${data.location.latitude}, ${data.location.longitude})` : `the center of ZIP ${market.zip}`
+    : null;
+  return <section className="max-w-3xl border border-black/10 bg-white/60 p-5">
+    <div className="flex items-baseline justify-between gap-4"><h2 className="font-serif text-2xl">Market alerts</h2>{data.state !== "unavailable" ? <span className="text-sm text-black/55">{data.total} confirmed {data.total === 1 ? "subscriber" : "subscribers"} in total</span> : null}</div>
+    {result && [sent, failed, skipped].every(Number.isFinite) ? <p className={`mt-3 border px-3 py-2 text-sm ${failed ? "border-amber-700/30 bg-amber-50 text-amber-950" : "border-green-700/30 bg-green-50 text-green-900"}`}>Sent {sent}, failed {failed}, skipped {skipped} (already emailed).{failed ? " Failed emails weren’t marked as sent; sending again retries them." : ""}</p> : null}
+    {data.state === "unavailable" ? <p className="mt-3 text-sm text-black/60">Market alerts aren’t set up yet. Run the market alerts migration and the ZIP code seed script.</p> : null}
+    {data.state === "draft" ? <p className="mt-3 text-sm text-black/60">Publish this market to send alerts to nearby subscribers.</p> : null}
+    {data.state === "no-location" ? <p className="mt-3 text-sm text-black/60">Add a ZIP code or latitude and longitude above so nearby subscribers can be found.</p> : null}
+    {data.state === "no-email" ? <p className="mt-3 text-sm text-black/60">Set RESEND_API_KEY to send alerts.</p> : null}
+    {data.state === "ready" ? <>
+      <p className="mt-3 text-sm text-black/70">Matching from {where}. <strong>{data.recipients}</strong> confirmed {data.recipients === 1 ? "subscriber is" : "subscribers are"} within their chosen radius and {data.recipients === 1 ? "hasn’t" : "haven’t"} been emailed about this market{data.alreadySent ? ` (${data.alreadySent} already emailed)` : ""}.</p>
+      <SendAlertsControl action={sendMarketAlertsAction} marketId={market.id} recipientCount={data.recipients} />
+    </> : null}
+  </section>;
+}
 
 const inputClass = "mt-1 w-full border border-black/20 bg-white px-3 py-2 text-sm";
 const buttonClass = "border border-black/20 px-3 py-2 text-sm hover:border-black";
 const primaryButtonClass = "bg-black px-3 py-2 text-sm text-white";
 const marketTypes = ["Farmers", "Artisan-Craft", "Holiday", "Night", "Popup", "Vintage-Flea", "Other"];
 
-function Field({ label, name, defaultValue, type = "text", required = false, disabled = false }: { label: string; name: string; defaultValue?: string | number | null; type?: string; required?: boolean; disabled?: boolean }) {
-  return <label className="block text-sm"><span>{label}</span><input className={inputClass} name={name} defaultValue={defaultValue ?? ""} type={type} required={required} disabled={disabled} /></label>;
+function Field({ label, name, defaultValue, type = "text", required = false, disabled = false, step, pattern, inputMode }: { label: string; name: string; defaultValue?: string | number | null; type?: string; required?: boolean; disabled?: boolean; step?: string; pattern?: string; inputMode?: "numeric" | "decimal" }) {
+  return <label className="block text-sm"><span>{label}</span><input className={inputClass} name={name} defaultValue={defaultValue ?? ""} type={type} required={required} disabled={disabled} step={step} pattern={pattern} inputMode={inputMode} /></label>;
 }
 
 function TextArea({ label, name, defaultValue, disabled = false }: { label: string; name: string; defaultValue?: string | null; disabled?: boolean }) {
@@ -56,7 +107,7 @@ async function loadAdminData() {
 function MarketForm({ market }: { market?: Market }) {
   return <><form action={market ? updateMarket : createMarket} className="space-y-4 border border-black/10 bg-white/60 p-5">
     {market ? <input type="hidden" name="id" value={market.id} /> : null}
-    <div className="grid gap-4 md:grid-cols-2"><Field label="Name" name="name" defaultValue={market?.name} required /><Field label="Slug" name="slug" defaultValue={market?.slug} required /><Field label="City" name="city" defaultValue={market?.city} required /><Field label="State" name="state" defaultValue={market?.state} required /><Field label="Address" name="address" defaultValue={market?.address} /><label className="block text-sm"><span>Market type</span><select className={inputClass} name="market_type" defaultValue={market?.market_type ?? "Farmers"} required><option value="">Select a type</option>{marketTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><Field label="Latitude" name="latitude" defaultValue={market?.latitude} type="number" /><Field label="Longitude" name="longitude" defaultValue={market?.longitude} type="number" /><Field label="Map image URL" name="map_image_url" defaultValue={market?.map_image_url} /><Field label="Organizer name" name="organizer_name" defaultValue={market?.organizer_name} /><Field label="Organizer URL" name="organizer_url" defaultValue={market?.organizer_url} /></div>
+    <div className="grid gap-4 md:grid-cols-2"><Field label="Name" name="name" defaultValue={market?.name} required /><Field label="Slug" name="slug" defaultValue={market?.slug} required /><Field label="City" name="city" defaultValue={market?.city} required /><Field label="State" name="state" defaultValue={market?.state} required /><Field label="Address" name="address" defaultValue={market?.address} /><label className="block text-sm"><span>Market type</span><select className={inputClass} name="market_type" defaultValue={market?.market_type ?? "Farmers"} required><option value="">Select a type</option>{marketTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><Field label="ZIP code (for market alerts)" name="zip" defaultValue={market?.zip} pattern="\d{5}" inputMode="numeric" /><Field label="Latitude" name="latitude" defaultValue={market?.latitude} type="number" step="any" /><Field label="Longitude" name="longitude" defaultValue={market?.longitude} type="number" step="any" /><Field label="Map image URL" name="map_image_url" defaultValue={market?.map_image_url} /><Field label="Organizer name" name="organizer_name" defaultValue={market?.organizer_name} /><Field label="Organizer URL" name="organizer_url" defaultValue={market?.organizer_url} /></div>
     {market && !marketTypes.includes(market.market_type) ? <p className="border border-amber-700/30 bg-amber-50 px-3 py-2 text-sm text-amber-900">This market has an invalid type value, <strong>{market.market_type}</strong>. Choose a valid type and save it manually.</p> : null}
     <TextArea label="Description" name="description" defaultValue={market?.description} />
     <label className="block text-sm"><span>Status</span><select className={inputClass} name="status" defaultValue={market?.status ?? "draft"}><option value="draft">Draft</option><option value="published">Published</option></select></label>
@@ -97,9 +148,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const selectedDates = selected ? data.dates.filter((date) => date.market_id === selected.id) : [];
   const selectedLinks = selected ? data.links.filter((link) => link.market_id === selected.id) : [];
   const linkedVendorIds = new Set(selectedLinks.map((link) => link.vendor_id));
+  const [alertsPanel, subscriberTotal] = await Promise.all([
+    selected ? loadAlertsPanel(selected) : Promise.resolve(null),
+    !selected && !showNewMarket ? loadSubscriberTotal() : Promise.resolve(null),
+  ]);
   const availableVendors = data.vendors.filter((vendor) => !linkedVendorIds.has(vendor.id));
 
   return <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10"><header className="flex items-center justify-between gap-6 border-b border-black/10 pb-6"><div><Link className="text-sm uppercase tracking-[0.2em] text-black/50 hover:text-black" href="/">Dropvine Markets</Link><h1 className="mt-2 font-serif text-4xl">Admin</h1></div><form action="/api/admin/logout" method="post"><button className={buttonClass} type="submit">Sign out</button></form></header>
-    {showNewMarket ? <section className="max-w-3xl"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-sm uppercase tracking-[0.2em] text-black/50">Markets</p><h2 className="mt-2 font-serif text-3xl">New market</h2></div><a className={buttonClass} href="/admin">Back to markets</a></div><MarketForm /></section> : selected ? <><section className="flex items-start justify-between gap-4 border-b border-black/10 pb-6"><div><a className="text-sm text-black/55 underline decoration-black/25 underline-offset-4" href="/admin">All markets</a><h2 className="mt-3 font-serif text-3xl">Edit {selected.name}</h2></div><a className={buttonClass} href="/admin">Back to markets</a></section><section className="max-w-3xl"><MarketForm market={selected} /></section><section className="grid gap-8 lg:grid-cols-2"><div><h2 className="mb-4 font-serif text-2xl">Dates</h2><div className="space-y-3">{selectedDates.map((date) => <div key={date.id}><DateForm marketId={selected.id} date={date} /><form action={deleteMarketDate} className="mt-1"><input name="id" type="hidden" value={date.id} /><input name="market_id" type="hidden" value={selected.id} /><button className="text-sm text-red-700" type="submit">Remove date</button></form></div>)}<DateForm marketId={selected.id} /></div></div><div><h2 className="mb-4 font-serif text-2xl">Vendors at this market</h2><div className="space-y-3">{selectedLinks.map((link) => <div key={link.id}><p className="mb-2 font-medium"><Link className="underline decoration-black/25 underline-offset-4 hover:decoration-black" href={`/admin/vendors/${link.vendor.id}`}>{link.vendor.business_name}</Link></p><LinkForm marketId={selected.id} vendors={data.vendors} link={link} hasMap={Boolean(selected.map_image_url)} /><form action={deleteMarketVendorLink} className="mt-1"><input name="id" type="hidden" value={link.id} /><input name="market_id" type="hidden" value={selected.id} /><button className="text-sm text-red-700" type="submit">Remove vendor</button></form></div>)}<LinkForm marketId={selected.id} vendors={availableVendors} hasMap={Boolean(selected.map_image_url)} /><CsvVendorImport action={importVendorsFromCsv} marketId={selected.id} /></div></div></section></> : <><section><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-sm uppercase tracking-[0.2em] text-black/50">Administration</p><h2 className="mt-2 font-serif text-3xl">Markets</h2></div><a className={primaryButtonClass} href="/admin?new=1">New market</a></div><div className="border border-black/10">{data.markets.length ? data.markets.map((market) => <article className="flex items-center justify-between gap-4 border-b border-black/10 p-4 last:border-b-0" key={market.id}><div><a href={`/admin?market=${market.id}`}><h3 className="font-serif text-xl">{market.name}</h3></a><p className="mt-1 text-sm text-black/60">{market.market_type}</p>{!marketTypes.includes(market.market_type) ? <p className="mt-1 text-sm text-amber-800">Invalid market type. Select and fix manually.</p> : null}</div><div className="flex items-center gap-4"><span className="text-xs uppercase tracking-wide">{market.status}</span><form action={deleteMarket}><input name="id" type="hidden" value={market.id} /><button className="text-sm text-red-700" type="submit">Delete</button></form></div></article>) : <p className="p-6 text-sm text-black/60">No markets yet.</p>}</div></section><section><h2 className="mb-4 font-serif text-2xl">Vendors</h2><div className="border border-black/10">{data.vendors.length ? data.vendors.map((vendor) => <Link key={vendor.id} href={`/admin/vendors/${vendor.id}`} className="flex items-center justify-between gap-4 border-b border-black/10 p-4 last:border-b-0 hover:bg-[#F2F0EA]"><div><h3 className="font-serif text-xl">{vendor.business_name}</h3><p className="mt-1 text-sm text-black/60">{vendor.category}</p></div><span aria-hidden="true" className="text-xl text-black/45">→</span></Link>) : <p className="p-6 text-sm text-black/60">No vendors yet.</p>}</div></section></>}
+    {showNewMarket ? <section className="max-w-3xl"><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-sm uppercase tracking-[0.2em] text-black/50">Markets</p><h2 className="mt-2 font-serif text-3xl">New market</h2></div><a className={buttonClass} href="/admin">Back to markets</a></div><MarketForm /></section> : selected ? <><section className="flex items-start justify-between gap-4 border-b border-black/10 pb-6"><div><a className="text-sm text-black/55 underline decoration-black/25 underline-offset-4" href="/admin">All markets</a><h2 className="mt-3 font-serif text-3xl">Edit {selected.name}</h2></div><a className={buttonClass} href="/admin">Back to markets</a></section><section className="max-w-3xl"><MarketForm market={selected} /></section>{alertsPanel ? <AlertsPanel data={alertsPanel} market={selected} result={params.alerts} /> : null}<section className="grid gap-8 lg:grid-cols-2"><div><h2 className="mb-4 font-serif text-2xl">Dates</h2><div className="space-y-3">{selectedDates.map((date) => <div key={date.id}><DateForm marketId={selected.id} date={date} /><form action={deleteMarketDate} className="mt-1"><input name="id" type="hidden" value={date.id} /><input name="market_id" type="hidden" value={selected.id} /><button className="text-sm text-red-700" type="submit">Remove date</button></form></div>)}<DateForm marketId={selected.id} /></div></div><div><h2 className="mb-4 font-serif text-2xl">Vendors at this market</h2><div className="space-y-3">{selectedLinks.map((link) => <div key={link.id}><p className="mb-2 font-medium"><Link className="underline decoration-black/25 underline-offset-4 hover:decoration-black" href={`/admin/vendors/${link.vendor.id}`}>{link.vendor.business_name}</Link></p><LinkForm marketId={selected.id} vendors={data.vendors} link={link} hasMap={Boolean(selected.map_image_url)} /><form action={deleteMarketVendorLink} className="mt-1"><input name="id" type="hidden" value={link.id} /><input name="market_id" type="hidden" value={selected.id} /><button className="text-sm text-red-700" type="submit">Remove vendor</button></form></div>)}<LinkForm marketId={selected.id} vendors={availableVendors} hasMap={Boolean(selected.map_image_url)} /><CsvVendorImport action={importVendorsFromCsv} marketId={selected.id} /></div></div></section></> : <><section><div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-sm uppercase tracking-[0.2em] text-black/50">Administration</p><h2 className="mt-2 font-serif text-3xl">Markets</h2>{subscriberTotal !== null ? <p className="mt-1 text-sm text-black/55">Market alert subscribers: {subscriberTotal} confirmed</p> : null}</div><a className={primaryButtonClass} href="/admin?new=1">New market</a></div><div className="border border-black/10">{data.markets.length ? data.markets.map((market) => <article className="flex items-center justify-between gap-4 border-b border-black/10 p-4 last:border-b-0" key={market.id}><div><a href={`/admin?market=${market.id}`}><h3 className="font-serif text-xl">{market.name}</h3></a><p className="mt-1 text-sm text-black/60">{market.market_type}</p>{!marketTypes.includes(market.market_type) ? <p className="mt-1 text-sm text-amber-800">Invalid market type. Select and fix manually.</p> : null}</div><div className="flex items-center gap-4"><span className="text-xs uppercase tracking-wide">{market.status}</span><form action={deleteMarket}><input name="id" type="hidden" value={market.id} /><button className="text-sm text-red-700" type="submit">Delete</button></form></div></article>) : <p className="p-6 text-sm text-black/60">No markets yet.</p>}</div></section><section><h2 className="mb-4 font-serif text-2xl">Vendors</h2><div className="border border-black/10">{data.vendors.length ? data.vendors.map((vendor) => <Link key={vendor.id} href={`/admin/vendors/${vendor.id}`} className="flex items-center justify-between gap-4 border-b border-black/10 p-4 last:border-b-0 hover:bg-[#F2F0EA]"><div><h3 className="font-serif text-xl">{vendor.business_name}</h3><p className="mt-1 text-sm text-black/60">{vendor.category}</p></div><span aria-hidden="true" className="text-xl text-black/45">→</span></Link>) : <p className="p-6 text-sm text-black/60">No vendors yet.</p>}</div></section></>}
   </main>;
 }

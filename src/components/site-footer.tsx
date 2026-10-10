@@ -22,6 +22,7 @@ export default function SiteFooter() {
         <div className="mt-10 flex flex-col gap-x-8 gap-y-2 border-t border-forest-line pt-6 text-sm text-sage sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <span>Dropvine Markets</span>
           <div className="flex flex-wrap items-center gap-x-6">
+            <a href="#alerts" className={footerLinkClass}>Get market alerts</a>
             <Link href="/about" className={footerLinkClass}>About</Link>
             <a href="https://dropvine.pro" className={footerLinkClass}>For makers</a>
             <span>

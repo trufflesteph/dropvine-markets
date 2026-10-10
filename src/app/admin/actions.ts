@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { alertsConfig, checkAlertsConfig } from "@/lib/alerts/config";
+import { createResendMailer } from "@/lib/alerts/resend-mailer";
+import { resolveMarketLocation, sendMarketAlerts } from "@/lib/alerts/send";
+import { supabaseAlertStore } from "@/lib/alerts/store-supabase";
 import { cleanImportText } from "@/lib/csv-import";
+import { currentRun, formatDateRange, todayInLosAngeles } from "@/lib/market-format";
 import { vendorCategories } from "@/lib/vendor-categories";
 
 import { hasAdminSession } from "@/lib/admin-auth";
@@ -33,6 +38,13 @@ function optionalNumber(value: FormValue) {
   const number = Number(parsed);
   if (!Number.isFinite(number)) throw new Error("Numeric values must be valid numbers");
   return number;
+}
+
+function optionalZip(value: FormValue) {
+  const parsed = text(value);
+  if (!parsed) return null;
+  if (!/^\d{5}$/.test(parsed)) throw new Error("ZIP code must be 5 digits");
+  return parsed;
 }
 
 function checked(formData: FormData, name: string) {
@@ -243,6 +255,43 @@ export async function importVendorsFromCsv(_previous: CsvImportResult | null, fo
   return { created, existing, skipped };
 }
 
+// Emails confirmed subscribers within range about a published market. Only runs on an explicit confirmation
+// click; already-emailed subscribers are skipped (see sendMarketAlerts).
+export async function sendMarketAlertsAction(formData: FormData) {
+  await requireAdmin();
+  const marketId = requiredText(formData, "market_id");
+  if (formData.get("confirm") !== "yes") throw new Error("Sending alerts needs an explicit confirmation");
+
+  const config = alertsConfig();
+  if (!checkAlertsConfig(config) || !config.resendApiKey) throw new Error("RESEND_API_KEY is not configured");
+
+  const markets = await (await request(`markets?id=eq.${encodeURIComponent(marketId)}&select=id,name,slug,city,state,status,zip,latitude,longitude`)).json() as { id: string; name: string; slug: string; city: string; state: string; status: string; zip: string | null; latitude: number | null; longitude: number | null }[];
+  const market = markets[0];
+  if (!market) throw new Error("Market not found");
+  if (market.status !== "published") throw new Error("Publish the market before sending alerts");
+
+  const location = await resolveMarketLocation(supabaseAlertStore, market);
+  if (!location) throw new Error("Add a ZIP code or coordinates to this market before sending alerts");
+
+  const [dates, links] = await Promise.all([
+    (await request(`market_dates?market_id=eq.${encodeURIComponent(marketId)}&is_canceled=eq.false&select=date&order=date.asc`)).json() as Promise<{ date: string }[]>,
+    request(`market_vendor_links?market_id=eq.${encodeURIComponent(marketId)}&select=id&limit=1`, { headers: { Prefer: "count=exact" } }),
+  ]);
+  const run = currentRun(dates.map((row) => row.date), todayInLosAngeles());
+  const summary = await sendMarketAlerts(
+    {
+      id: market.id, name: market.name, slug: market.slug, city: market.city, state: market.state,
+      dates: run ? formatDateRange(run.start, run.end) : null,
+      vendorCount: Number(links.headers.get("content-range")?.split("/")[1] ?? 0),
+    },
+    location,
+    { store: supabaseAlertStore, mailer: createResendMailer(config.resendApiKey, config.fromEmail), config },
+  );
+
+  revalidatePath("/admin");
+  redirect(`/admin?market=${encodeURIComponent(marketId)}&alerts=${summary.sent}.${summary.failed}.${summary.skipped}`);
+}
+
 function marketPayload(formData: FormData) {
   const marketType = requiredText(formData, "market_type");
   if (!marketTypes.includes(marketType as (typeof marketTypes)[number])) {
@@ -257,6 +306,7 @@ function marketPayload(formData: FormData) {
     city: requiredText(formData, "city"),
     state: requiredText(formData, "state"),
     address: text(formData.get("address")),
+    zip: optionalZip(formData.get("zip")),
     latitude: optionalNumber(formData.get("latitude")),
     longitude: optionalNumber(formData.get("longitude")),
     map_image_url: text(formData.get("map_image_url")),
