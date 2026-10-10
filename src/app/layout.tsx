@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, EB_Garamond } from "next/font/google";
 import Script from "next/script";
 
-import SiteFooter from "@/components/site-footer";
-import SiteHeader from "@/components/site-header";
+import { defaultShareImage } from "@/lib/image-url";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -27,6 +26,11 @@ export const metadata: Metadata = {
     siteName: "Dropvine Markets",
     title: "Dropvine Markets",
     description: "Find local markets worth wandering through.",
+    images: [defaultShareImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [defaultShareImage],
   },
 };
 
@@ -37,9 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${dmSans.variable} ${ebGaramond.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <SiteHeader />
-        <div className="flex-1">{children}</div>
-        <SiteFooter />
+        {children}
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? (
           <>
             <Script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`} />

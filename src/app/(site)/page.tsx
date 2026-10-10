@@ -3,7 +3,8 @@ import Image from "next/image";
 
 import StallPlaceholder from "@/components/stall-placeholder";
 import { focusRingClass, primaryButtonClass } from "@/components/styles";
-import { formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
+import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
+import { currentRun, formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketGrid, { type GridMarket } from "./market-grid";
 
@@ -32,7 +33,8 @@ type MarketPhoto = {
 export async function generateMetadata(): Promise<Metadata> {
   const response = await supabasePublicFetch("markets?status=eq.published&select=hero_image_url&hero_image_url=not.is.null&order=name.asc");
   const markets = response.ok ? (await response.json()) as Pick<Market, "hero_image_url">[] : [];
-  const images = markets.flatMap((market) => market.hero_image_url ? [{ url: market.hero_image_url }] : []);
+  const heroImages = markets.flatMap((market) => isImageUrl(market.hero_image_url) ? [{ url: market.hero_image_url }] : []);
+  const images = heroImages.length ? heroImages : [defaultShareImage];
 
   return {
     title: "Markets | Dropvine",
@@ -43,6 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       images,
     },
+    twitter: { card: "summary_large_image", images },
   };
 }
 
@@ -51,8 +54,9 @@ async function fetchPublishedMarkets(): Promise<GridMarket[]> {
     supabasePublicFetch(
       "markets?status=eq.published&select=id,name,slug,market_type,city,state,hero_image_url,market_vendor_links(count)&order=name.asc",
     ),
+    // All dates, not just upcoming ones, so a market on day 2 of 2 still shows its full range.
     supabasePublicFetch(
-      `market_dates?is_canceled=eq.false&date=gte.${todayInLosAngeles()}&select=market_id,date&order=date.asc`,
+      "market_dates?is_canceled=eq.false&select=market_id,date&order=date.asc",
     ),
     supabasePublicFetch(
       "market_photos?select=market_id,photo_url,sort_order&order=sort_order.asc",
@@ -74,42 +78,32 @@ async function fetchPublishedMarkets(): Promise<GridMarket[]> {
     }
   }
 
-  const nextDates = new Map<string, string>();
-  const consecutiveEndDates = new Map<string, string>();
-
+  const datesByMarket = new Map<string, string[]>();
   for (const date of dates) {
-    if (!nextDates.has(date.market_id)) {
-      nextDates.set(date.market_id, date.date);
-    }
-
-    const startDate = nextDates.get(date.market_id);
-    const previousDate = consecutiveEndDates.get(date.market_id) ?? startDate;
-    if (startDate && previousDate) {
-      const previous = new Date(`${previousDate}T00:00:00Z`);
-      const current = new Date(`${date.date}T00:00:00Z`);
-      if (current.getTime() - previous.getTime() === 24 * 60 * 60 * 1000) {
-        consecutiveEndDates.set(date.market_id, date.date);
-      }
-    }
+    datesByMarket.set(date.market_id, [...(datesByMarket.get(date.market_id) ?? []), date.date]);
   }
 
-  return markets.map(({ market_vendor_links, ...market }) => ({
-    ...market,
-    hero_image_url: firstPhotoByMarket.get(market.id) ?? market.hero_image_url,
-    next_date: nextDates.get(market.id) ?? null,
-    next_date_end: consecutiveEndDates.get(market.id) ?? null,
-    vendor_count: market_vendor_links[0]?.count ?? 0,
-  }));
+  const today = todayInLosAngeles();
+  return markets.map(({ market_vendor_links, ...market }) => {
+    const run = currentRun(datesByMarket.get(market.id) ?? [], today);
+    return {
+      ...market,
+      hero_image_url: marketImageUrl(firstPhotoByMarket.get(market.id), market.hero_image_url),
+      range_start: run?.start ?? null,
+      next_date: run?.next ?? null,
+      next_date_end: run?.end ?? null,
+      vendor_count: market_vendor_links[0]?.count ?? 0,
+    };
+  });
 }
 
 // The upcoming market whose date range ends soonest (today or later, Pacific time); ties go to the earlier start.
 function findNextUp(markets: GridMarket[]) {
   const today = todayInLosAngeles();
   return markets
-    .filter((market): market is GridMarket & { next_date: string } => Boolean(market.next_date))
-    .map((market) => ({ market, start: market.next_date, end: market.next_date_end ?? market.next_date }))
-    .filter(({ end }) => end >= today)
-    .sort((first, second) => first.end.localeCompare(second.end) || first.start.localeCompare(second.start))[0]?.market ?? null;
+    .filter((market): market is GridMarket & { range_start: string; next_date_end: string } => Boolean(market.range_start && market.next_date_end))
+    .filter((market) => market.next_date_end >= today)
+    .sort((first, second) => first.next_date_end.localeCompare(second.next_date_end) || first.range_start.localeCompare(second.range_start))[0] ?? null;
 }
 
 export default async function Home() {
@@ -148,7 +142,7 @@ export default async function Home() {
                 <span className="inline-block rounded-full bg-clay px-3 py-1.5 text-xs leading-none font-bold tracking-[1.6px] text-white uppercase">Next up</span>
                 <p className="mt-3 font-serif text-2xl leading-[1.1] font-semibold text-navy sm:text-[28px]">{nextUp.name}</p>
                 <p className="mt-2 text-[15px] text-ink-muted">
-                  {formatDateRange(nextUp.next_date, nextUp.next_date_end)} · {formatPlace(nextUp.city, nextUp.state, nextUp.vendor_count)}
+                  {formatDateRange(nextUp.range_start, nextUp.next_date_end)} · {formatPlace(nextUp.city, nextUp.state, nextUp.vendor_count)}
                 </p>
                 <a href={`/markets/${nextUp.slug}`} className={`mt-1 inline-flex min-h-11 items-center text-base font-bold text-clay hover:text-clay-dark ${focusRingClass}`}>
                   See the market →

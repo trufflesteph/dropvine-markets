@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cleanImportText } from "@/lib/csv-import";
 import { vendorCategories } from "@/lib/vendor-categories";
 
 import { hasAdminSession } from "@/lib/admin-auth";
@@ -161,7 +162,8 @@ type ImportRow = {
   dropvine_direct_url?: unknown; photo_url?: unknown; blurb?: unknown; external_url?: unknown;
 };
 
-function importText(value: unknown) { return typeof value === "string" && value.trim() ? value.trim() : null; }
+// Rows arrive as JSON from the browser, so clean them again here rather than trusting the client.
+function importText(value: unknown) { const cleaned = typeof value === "string" ? cleanImportText(value) : ""; return cleaned || null; }
 function importNumber(value: unknown) {
   const parsed = importText(value);
   if (!parsed) return null;

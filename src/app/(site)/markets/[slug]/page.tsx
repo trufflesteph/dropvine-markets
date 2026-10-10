@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
+import { todayInLosAngeles } from "@/lib/market-format";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketDetail, { type MarketVendor } from "./market-detail";
 import MarketPhotoCarousel from "./market-photo-carousel";
@@ -33,10 +35,6 @@ type MarketDate = {
 type MarketPhoto = { id: string; photo_url: string; sort_order: number };
 type MarketVendorResponse = Omit<MarketVendor, "vendor"> & { vendors: MarketVendor["vendor"] | null };
 
-function todayUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -66,7 +64,7 @@ async function getMarket(slug: string) {
 
 async function getMarketContent(marketId: string) {
   const [datesResponse, linksResponse, photosResponse] = await Promise.all([
-    supabasePublicFetch(`market_dates?market_id=eq.${marketId}&is_canceled=eq.false&date=gte.${todayUtc()}&select=id,date,start_time,end_time,note&order=date.asc,start_time.asc`),
+    supabasePublicFetch(`market_dates?market_id=eq.${marketId}&is_canceled=eq.false&date=gte.${todayInLosAngeles()}&select=id,date,start_time,end_time,note&order=date.asc,start_time.asc`),
     supabasePublicFetch(`market_vendor_links?market_id=eq.${marketId}&select=id,map_x,map_y,booth_label,vendors(id,slug,business_name,category,photo_url,dropvine_direct_url)&order=booth_label.asc`),
     supabasePublicFetch(`market_photos?market_id=eq.${marketId}&select=id,photo_url,sort_order&order=sort_order.asc`),
   ]);
@@ -86,6 +84,11 @@ export async function generateMetadata({ params }: PageProps<"/markets/[slug]">)
   const market = await getMarket((await params).slug);
   if (!market) return {};
 
+  const photoResponse = await supabasePublicFetch(`market_photos?market_id=eq.${market.id}&select=photo_url&order=sort_order.asc&limit=1`);
+  const firstPhoto = photoResponse.ok ? ((await photoResponse.json()) as { photo_url: string }[])[0]?.photo_url : undefined;
+  const imageUrl = marketImageUrl(firstPhoto, market.hero_image_url);
+  const images = [imageUrl ? { url: imageUrl, alt: market.name } : defaultShareImage];
+
   const description = market.description ?? `Explore ${market.name} in ${market.city}, ${market.state}.`;
   return {
     title: `${market.name} | Dropvine Markets`,
@@ -94,8 +97,9 @@ export async function generateMetadata({ params }: PageProps<"/markets/[slug]">)
       title: `${market.name} | Dropvine Markets`,
       description,
       type: "website",
-      images: market.hero_image_url ? [{ url: market.hero_image_url, alt: market.name }] : undefined,
+      images,
     },
+    twitter: { card: "summary_large_image", images },
   };
 }
 
@@ -120,7 +124,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
           </div>
         </header>
 
-        <MarketPhotoCarousel marketName={market.name} photos={photos.length ? photos : market.hero_image_url ? [{ id: "legacy-hero", photo_url: market.hero_image_url }] : []} />
+        <MarketPhotoCarousel marketName={market.name} photos={photos.length ? photos : isImageUrl(market.hero_image_url) ? [{ id: "legacy-hero", photo_url: market.hero_image_url }] : []} />
 
         {market.description ? <section className="mt-16 max-w-3xl"><p className="text-xl leading-relaxed sm:text-2xl">{market.description}</p></section> : null}
 

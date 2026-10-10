@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import StallPlaceholder from "@/components/stall-placeholder";
 import { focusRingClass } from "@/components/styles";
-import { formatDateRange, formatPlace } from "@/lib/market-format";
+import { type DateFilter, formatDateRange, formatPlace, isInDateFilter, todayInLosAngeles } from "@/lib/market-format";
 
 export type GridMarket = {
   id: string;
@@ -15,38 +15,19 @@ export type GridMarket = {
   city: string;
   state: string;
   hero_image_url: string | null;
+  /** First day of the current run of dates (may be before today); for display. */
+  range_start: string | null;
+  /** First date on or after today; for filtering and sorting. */
   next_date: string | null;
   next_date_end: string | null;
   vendor_count: number;
 };
 
-type DateFilter = "all" | "weekend" | "month";
 type SortOrder = "soonest" | "furthest";
 
 const labelClass = "flex w-full items-center gap-3 sm:w-auto";
 const labelTextClass = "w-20 shrink-0 text-[15px] font-medium text-ink-muted sm:w-auto";
 const selectClass = "min-h-12 min-w-0 flex-1 rounded-[10px] border-[1.5px] border-line-strong bg-white px-3 text-[15px] font-medium text-navy outline-none focus-visible:border-navy focus-visible:ring-2 focus-visible:ring-navy/25 sm:min-h-11 sm:flex-none";
-
-function isInDateFilter(value: string | null, filter: DateFilter) {
-  if (filter === "all" || !value) return true;
-
-  const date = new Date(`${value}T00:00:00Z`);
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-  if (filter === "month") {
-    return date.getUTCFullYear() === today.getUTCFullYear() && date.getUTCMonth() === today.getUTCMonth();
-  }
-
-  const day = today.getUTCDay();
-  const daysUntilSaturday = (6 - day + 7) % 7;
-  const weekendStart = new Date(today);
-  weekendStart.setUTCDate(today.getUTCDate() + daysUntilSaturday);
-  const weekendEnd = new Date(weekendStart);
-  weekendEnd.setUTCDate(weekendStart.getUTCDate() + 1);
-
-  return date >= weekendStart && date <= weekendEnd;
-}
 
 export default function MarketGrid({ markets }: { markets: GridMarket[] }) {
   const [type, setType] = useState("all");
@@ -61,10 +42,11 @@ export default function MarketGrid({ markets }: { markets: GridMarket[] }) {
   );
 
   const filteredMarkets = useMemo(() => {
+    const today = todayInLosAngeles();
     return markets
       .filter((market) => type === "all" || market.market_type === type)
       .filter((market) => location === "all" || `${market.city}, ${market.state}` === location)
-      .filter((market) => isInDateFilter(market.next_date, dateFilter))
+      .filter((market) => isInDateFilter(market.next_date, market.next_date_end, dateFilter, today))
       .sort((first, second) => {
         if (!first.next_date && !second.next_date) return first.name.localeCompare(second.name);
         if (!first.next_date) return 1;
@@ -134,7 +116,7 @@ export default function MarketGrid({ markets }: { markets: GridMarket[] }) {
                 </div>
                 <div className="px-6 pt-5 pb-6">
                   <p className="text-[13px] font-bold tracking-[1.8px] text-clay uppercase">
-                    {formatDateRange(market.next_date, market.next_date_end)} · {market.market_type}
+                    {formatDateRange(market.range_start, market.next_date_end)} · {market.market_type}
                   </p>
                   <h3 className="mt-2 font-serif text-[25px] leading-[1.1] font-semibold text-navy sm:text-[28px]">{market.name}</h3>
                   <p className="mt-2 text-[15px] text-ink-muted">{formatPlace(market.city, market.state, market.vendor_count)}</p>

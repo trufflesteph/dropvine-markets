@@ -1,0 +1,2 @@
+# Test fixtures must keep their exact bytes (Windows-1252 encoding, CRLF line endings).
+tests/fixtures/** binary
