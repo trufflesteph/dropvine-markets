@@ -6,6 +6,7 @@ import { alertsConfig, checkAlertsConfig } from "@/lib/alerts/config";
 import { createResendMailer } from "@/lib/alerts/resend-mailer";
 import { resolveMarketLocation, sendMarketAlerts } from "@/lib/alerts/send";
 import { supabaseAlertStore } from "@/lib/alerts/store-supabase";
+import { parseBooths } from "@/lib/booths";
 import { cleanImportText } from "@/lib/csv-import";
 import { currentRun, formatDateRange, todayInLosAngeles } from "@/lib/market-format";
 import { vendorCategories } from "@/lib/vendor-categories";
@@ -45,6 +46,12 @@ function optionalZip(value: FormValue) {
   if (!parsed) return null;
   if (!/^\d{5}$/.test(parsed)) throw new Error("ZIP code must be 5 digits");
   return parsed;
+}
+
+// Stored as text[]; null rather than an empty array when there are no booths.
+function boothsPayload(value: unknown) {
+  const booths = parseBooths(value);
+  return booths.length ? booths : null;
 }
 
 function checked(formData: FormData, name: string) {
@@ -247,7 +254,7 @@ export async function importVendorsFromCsv(_previous: CsvImportResult | null, fo
     }
     if (!vendor) throw new Error("Vendor could not be created");
     if (!linkedVendorIds.has(vendor.id)) {
-      await request("market_vendor_links", jsonBody({ market_id: marketId, vendor_id: vendor.id, map_x: importNumber(row.map_x), map_y: importNumber(row.map_y), booth_label: importText(row.booth_label), featured: false }, "POST"));
+      await request("market_vendor_links", jsonBody({ market_id: marketId, vendor_id: vendor.id, map_x: importNumber(row.map_x), map_y: importNumber(row.map_y), booth_label: boothsPayload(importText(row.booth_label)), featured: false }, "POST"));
       linkedVendorIds.add(vendor.id);
     }
   }
@@ -430,7 +437,7 @@ function linkPayload(formData: FormData) {
     vendor_id: requiredText(formData, "vendor_id"),
     map_x: mapX,
     map_y: mapY,
-    booth_label: text(formData.get("booth_label")),
+    booth_label: boothsPayload(formData.get("booth_label")),
     featured: checked(formData, "featured"),
   };
 }
