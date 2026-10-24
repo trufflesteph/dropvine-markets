@@ -3,13 +3,15 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 
+import { formatBooths } from "@/lib/booths";
 import { categoryGroups, categoryGroupsFor, categoryPinColors } from "@/lib/category-groups";
 
 export type MarketVendor = {
   id: string;
   map_x: number | null;
   map_y: number | null;
-  booth_label: string | null;
+  // text[] after the multiple-booths migration; a plain string before it.
+  booth_label: string[] | string | null;
   vendor: {
     id: string;
     slug: string;
@@ -73,7 +75,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
               <button
                 key={link.id}
                 type="button"
-                aria-label={`Find vendor ${index + 1}, ${link.vendor.business_name}, ${link.vendor.category}`}
+                aria-label={[`Find vendor ${index + 1}`, link.vendor.business_name, link.vendor.category, formatBooths(link.booth_label)].filter(Boolean).join(", ")}
                 aria-pressed={activeVendorId === link.vendor.id}
                 className={`group absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center border-0 bg-transparent p-0 text-xs font-bold shadow-none transition-all sm:h-7 sm:w-7 ${activeVendorId === link.vendor.id ? "z-10 sm:h-9 sm:w-9" : "hover:z-10"}`}
                 style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
@@ -153,6 +155,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   <div className="min-w-0 flex-1 py-1">
                     <h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3>
                     <p className="mt-1 text-sm text-black/55">{link.vendor.category}</p>
+                    {formatBooths(link.booth_label) ? <p className="mt-1 text-sm text-black/55">{formatBooths(link.booth_label)}</p> : null}
                   </div>
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={color}>{index + 1}</span>
                 </a>

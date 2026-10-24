@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { compareByBooths } from "@/lib/booths";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { todayInLosAngeles } from "@/lib/market-format";
 import { absoluteUrl } from "@/lib/site-url";
@@ -66,7 +67,7 @@ async function getMarket(slug: string) {
 async function getMarketContent(marketId: string) {
   const [datesResponse, linksResponse, photosResponse] = await Promise.all([
     supabasePublicFetch(`market_dates?market_id=eq.${marketId}&is_canceled=eq.false&date=gte.${todayInLosAngeles()}&select=id,date,start_time,end_time,note&order=date.asc,start_time.asc`),
-    supabasePublicFetch(`market_vendor_links?market_id=eq.${marketId}&select=id,map_x,map_y,booth_label,vendors(id,slug,business_name,category,photo_url,dropvine_direct_url)&order=booth_label.asc`),
+    supabasePublicFetch(`market_vendor_links?market_id=eq.${marketId}&select=id,map_x,map_y,booth_label,vendors(id,slug,business_name,category,photo_url,dropvine_direct_url)`),
     supabasePublicFetch(`market_photos?market_id=eq.${marketId}&select=id,photo_url,sort_order&order=sort_order.asc`),
   ]);
 
@@ -76,7 +77,11 @@ async function getMarketContent(marketId: string) {
 
   return {
     dates: (await datesResponse.json()) as MarketDate[],
-    vendors: vendorLinks.filter((link): link is MarketVendorResponse & { vendors: MarketVendor["vendor"] } => Boolean(link.vendors)).map((link) => ({ ...link, vendor: link.vendors })),
+    // Booth order also sets the map pin numbers.
+    vendors: vendorLinks
+      .filter((link): link is MarketVendorResponse & { vendors: MarketVendor["vendor"] } => Boolean(link.vendors))
+      .map((link) => ({ ...link, vendor: link.vendors }))
+      .sort((a, b) => compareByBooths(a.booth_label, b.booth_label)),
     photos: (await photosResponse.json()) as MarketPhoto[],
   };
 }
