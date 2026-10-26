@@ -6,6 +6,7 @@ import { compareByBooths } from "@/lib/booths";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { todayInLosAngeles } from "@/lib/market-format";
 import { absoluteUrl } from "@/lib/site-url";
+import { spotlightSlugsForVendors } from "@/lib/spotlights-data";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketDetail, { type MarketVendor } from "./market-detail";
 import MarketPhotoCarousel from "./market-photo-carousel";
@@ -115,6 +116,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
   if (!market) notFound();
 
   const { dates, vendors, photos } = await getMarketContent(market.id);
+  const spotlightSlugs = await spotlightSlugsForVendors(vendors.map((link) => link.vendor.id));
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 sm:py-14">
@@ -149,7 +151,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
           ) : <p className="mt-6 border border-black/10 px-5 py-8 text-sm text-black/55">No upcoming dates scheduled</p>}
         </section>
 
-        <MarketDetail mapImageUrl={market.map_image_url} latitude={market.latitude} longitude={market.longitude} vendors={vendors} />
+        <MarketDetail mapImageUrl={market.map_image_url} latitude={market.latitude} longitude={market.longitude} vendors={vendors} spotlightSlugs={spotlightSlugs} />
       </article>
     </main>
   );

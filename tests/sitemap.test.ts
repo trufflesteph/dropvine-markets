@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { absoluteUrl, normalizeSiteUrl } from "../src/lib/site-url.ts";
-import { buildSitemap, type SitemapMarket, type SitemapVendor, staticSitemap } from "../src/lib/sitemap.ts";
+import { buildSitemap, type SitemapMarket, type SitemapSpotlight, type SitemapVendor, staticSitemap } from "../src/lib/sitemap.ts";
 
 const base = "https://www.example.test";
 const urls = (entries: { url: string }[]) => entries.map((entry) => entry.url);
@@ -42,6 +42,18 @@ test("only vendors linked to a published market are included, and never Dropvine
   const entries = buildSitemap(base, [], vendors).filter((entry) => entry.url.includes("/vendors/"));
   assert.deepEqual(urls(entries), [`${base}/vendors/happy-knits`, `${base}/vendors/two-markets`]);
   for (const entry of entries) assert.ok(!("lastModified" in entry), "vendors have no updated-at, so no lastModified");
+});
+
+test("published spotlights and /spotlights are included; drafts never, and no index without spotlights", () => {
+  const spotlights: SitemapSpotlight[] = [
+    { slug: "meet-clay-co", status: "published", updated_at: "2026-10-20T12:00:00+00:00" },
+    { slug: "draft-feature", status: "draft", updated_at: null },
+    { slug: "meet-clay-co", status: "published", updated_at: null },
+  ];
+  const entries = urls(buildSitemap(base, [], [], spotlights)).filter((url) => url.includes("/spotlights"));
+  assert.deepEqual(entries, [`${base}/spotlights`, `${base}/spotlights/meet-clay-co`]);
+  assert.ok(!urls(buildSitemap(base, [], [], [spotlights[1]])).some((url) => url.includes("/spotlights")));
+  assert.ok(!urls(buildSitemap(base, markets, vendors)).some((url) => url.includes("/spotlights")));
 });
 
 test("every URL is absolute, on the configured site, with slugs encoded and no duplicates", () => {

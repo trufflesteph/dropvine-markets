@@ -27,13 +27,15 @@ type MarketDetailProps = {
   latitude: number | null;
   longitude: number | null;
   vendors: MarketVendor[];
+  /** vendor id → slug of their published spotlight, when they have one. */
+  spotlightSlugs?: Record<string, string>;
 };
 
 function vendorHref(vendor: MarketVendor["vendor"]) {
   return vendor.dropvine_direct_url ?? `/vendors/${vendor.slug}`;
 }
 
-export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors }: MarketDetailProps) {
+export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors, spotlightSlugs = {} }: MarketDetailProps) {
   const [activeVendorId, setActiveVendorId] = useState<string | null>(null);
   const vendorRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -159,6 +161,14 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   </div>
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={color}>{index + 1}</span>
                 </a>
+                {spotlightSlugs[link.vendor.id] ? (
+                  <a
+                    href={`/spotlights/${spotlightSlugs[link.vendor.id]}`}
+                    className="inline-flex min-h-11 items-center px-3 text-sm font-bold text-clay hover:text-clay-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                  >
+                    Read their spotlight <span aria-hidden="true" className="ml-1">→</span>
+                  </a>
+                ) : null}
               </article>
               );
             })}

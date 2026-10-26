@@ -1,10 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { hasPublishedSpotlights } from "@/lib/spotlights-data";
 import SiteNav from "./site-nav";
 import { focusRingClass } from "./styles";
 
-export default function SiteHeader() {
+export default async function SiteHeader() {
+  const showSpotlights = await hasPublishedSpotlights();
+
   return (
     <header className="border-b border-line bg-paper px-5 py-3 sm:px-10 sm:py-3.5 lg:px-[72px]">
       <div className="mx-auto flex max-w-[1296px] flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -19,7 +22,7 @@ export default function SiteHeader() {
           />
         </Link>
         <div className="flex items-center gap-8">
-          <SiteNav />
+          <SiteNav showSpotlights={showSpotlights} />
           {/* Opens the alerts dialog (src/components/alerts-dialog.tsx). */}
           <button
             type="button"

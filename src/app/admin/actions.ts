@@ -9,6 +9,10 @@ import { supabaseAlertStore } from "@/lib/alerts/store-supabase";
 import { parseBooths } from "@/lib/booths";
 import { cleanImportText } from "@/lib/csv-import";
 import { currentRun, formatDateRange, todayInLosAngeles } from "@/lib/market-format";
+import {
+  isHttpUrl, isValidSlug, type SpotlightLink, type SpotlightPhoto, spotlightImageMaxBytes, spotlightImageTypes,
+  spotlightMaxLinks, spotlightMaxPhotos, spotlightSummaryMax,
+} from "@/lib/spotlights";
 import { vendorCategories } from "@/lib/vendor-categories";
 
 import { hasAdminSession } from "@/lib/admin-auth";
@@ -424,6 +428,208 @@ export async function deleteVendor(formData: FormData) {
   await request(`vendors?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
   revalidatePath("/admin");
   redirect("/admin");
+}
+
+// Spotlights. Text fields save through saveSpotlight (returns an error message instead of throwing, so the form
+// keeps what was typed); images, status changes and deletes are plain form actions that redirect back.
+
+export type SpotlightFormState = { error: string | null };
+type SpotlightRow = { id: string; slug: string; status: string; permission_confirmed: boolean; hero_image_url: string | null; hero_image_alt: string | null; photos: SpotlightPhoto[]; published_at: string | null };
+
+function revalidateSpotlights(...slugs: string[]) {
+  revalidatePath("/admin/spotlights", "layout");
+  revalidatePath("/spotlights");
+  for (const slug of slugs) revalidatePath(`/spotlights/${slug}`);
+  // The header link, the homepage section and market pages all depend on what is published.
+  revalidatePath("/", "layout");
+}
+
+async function getSpotlightRow(id: string) {
+  const rows = await (await request(`spotlights?id=eq.${encodeURIComponent(id)}&select=id,slug,status,permission_confirmed,hero_image_url,hero_image_alt,photos,published_at`)).json() as SpotlightRow[];
+  if (!rows[0]) throw new Error("Spotlight not found");
+  return rows[0];
+}
+
+function spotlightAdminPath(id: string, error?: string) {
+  return `/admin/spotlights/${encodeURIComponent(id)}${error ? `?error=${error}` : ""}`;
+}
+
+function spotlightPayload(formData: FormData): { error: string } | { payload: Record<string, unknown> } {
+  const title = text(formData.get("title"));
+  const slug = text(formData.get("slug"))?.toLowerCase() ?? "";
+  const makerName = text(formData.get("maker_name"));
+  const summary = text(formData.get("summary")) ?? "";
+  const category = text(formData.get("maker_category"));
+  const videoUrl = text(formData.get("video_url"));
+  const sortOrder = Number(text(formData.get("sort_order")) ?? 0);
+
+  if (!title) return { error: "Add a title." };
+  if (!isValidSlug(slug)) return { error: "The slug can only use lowercase letters, numbers and single hyphens (80 characters at most)." };
+  if (!makerName) return { error: "Add the maker’s name." };
+  if (summary.length > spotlightSummaryMax) return { error: `The summary is ${summary.length} characters; keep it to ${spotlightSummaryMax}.` };
+  if (category && !vendorCategories.includes(category as (typeof vendorCategories)[number])) return { error: "Choose a category from the list." };
+  if (videoUrl && !isHttpUrl(videoUrl)) return { error: "The video URL must start with http:// or https://." };
+  if (!Number.isInteger(sortOrder)) return { error: "Sort order must be a whole number." };
+
+  const links: SpotlightLink[] = [];
+  for (let index = 0; index < spotlightMaxLinks; index += 1) {
+    const label = text(formData.get(`link_label_${index}`));
+    const url = text(formData.get(`link_url_${index}`));
+    if (!label && !url) continue;
+    if (!label || !url) return { error: `Link ${index + 1} needs both a label and a URL.` };
+    if (!isHttpUrl(url)) return { error: `Link ${index + 1} must start with http:// or https://.` };
+    links.push({ label, url });
+  }
+
+  return {
+    payload: {
+      title, slug, summary, maker_name: makerName, maker_category: category,
+      body: typeof formData.get("body") === "string" ? (formData.get("body") as string).replace(/\r\n?/g, "\n").trim() : "",
+      vendor_id: text(formData.get("vendor_id")),
+      video_url: videoUrl,
+      links,
+      permission_confirmed: checked(formData, "permission_confirmed"),
+      sort_order: sortOrder,
+    },
+  };
+}
+
+export async function saveSpotlight(_previous: SpotlightFormState, formData: FormData): Promise<SpotlightFormState> {
+  await requireAdmin();
+  const id = text(formData.get("id"));
+  const result = spotlightPayload(formData);
+  if ("error" in result) return { error: result.error };
+  const { payload } = result;
+
+  const clash = await (await request(`spotlights?slug=eq.${encodeURIComponent(payload.slug as string)}${id ? `&id=neq.${encodeURIComponent(id)}` : ""}&select=id&limit=1`)).json() as { id: string }[];
+  if (clash.length) return { error: `Another spotlight already uses the slug “${payload.slug}”. Choose a different one.` };
+
+  let savedId = id;
+  let previousSlug: string | null = null;
+  if (id) {
+    const existing = await getSpotlightRow(id);
+    previousSlug = existing.slug;
+    if (existing.status === "published" && !payload.permission_confirmed) return { error: "This spotlight is published, so the permission box must stay checked. Unpublish it first." };
+    await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody(payload, "PATCH"));
+  } else {
+    const response = await request("spotlights", jsonBody({ ...payload, status: "draft" }, "POST", true));
+    savedId = ((await response.json()) as { id: string }[])[0]?.id ?? null;
+    if (!savedId) return { error: "The spotlight could not be created." };
+  }
+
+  revalidateSpotlights(payload.slug as string, ...(previousSlug ? [previousSlug] : []));
+  redirect(`${spotlightAdminPath(savedId!)}${id ? "?saved=1" : "?created=1"}`);
+}
+
+export async function setSpotlightStatus(formData: FormData) {
+  await requireAdmin();
+  const id = requiredText(formData, "id");
+  const publish = formData.get("status") === "published";
+  const returnTo = formData.get("return_to") === "list" ? "/admin/spotlights" : spotlightAdminPath(id);
+  const spotlight = await getSpotlightRow(id);
+  const separator = returnTo.includes("?") ? "&" : "?";
+  if (publish && !spotlight.permission_confirmed) redirect(`${returnTo}${separator}error=permission`);
+  if (publish && spotlight.hero_image_url && !spotlight.hero_image_alt?.trim()) redirect(`${returnTo}${separator}error=alt`);
+
+  await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody(publish
+    ? { status: "published", published_at: spotlight.published_at ?? new Date().toISOString() }
+    : { status: "draft" }, "PATCH"));
+  revalidateSpotlights(spotlight.slug);
+  redirect(returnTo);
+}
+
+export async function deleteSpotlight(formData: FormData) {
+  await requireAdmin();
+  const id = requiredText(formData, "id");
+  if (formData.get("confirm") !== "yes") throw new Error("Deleting a spotlight needs an explicit confirmation");
+  const spotlight = await getSpotlightRow(id);
+  await request(`spotlights?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  for (const url of [spotlight.hero_image_url, ...spotlight.photos.map((photo) => photo.url)]) {
+    const path = url ? storagePathFromUrl(url) : null;
+    if (path) await storageRequest(path, { method: "DELETE" });
+  }
+  revalidateSpotlights(spotlight.slug);
+  redirect("/admin/spotlights");
+}
+
+function spotlightImageError(file: FormDataEntryValue | null) {
+  if (!(file instanceof File) || file.size === 0) return "image-missing";
+  if (!(spotlightImageTypes as readonly string[]).includes(file.type)) return "image-type";
+  if (file.size > spotlightImageMaxBytes) return "image-size";
+  return null;
+}
+
+export async function uploadSpotlightImage(formData: FormData) {
+  await requireAdmin();
+  const id = requiredText(formData, "id");
+  const slot = formData.get("slot") === "hero" ? "hero" : "photo";
+  const alt = text(formData.get("alt"));
+  const file = formData.get("image");
+  const spotlight = await getSpotlightRow(id);
+
+  if (!alt) redirect(spotlightAdminPath(id, "alt"));
+  const fileError = spotlightImageError(file);
+  if (fileError) redirect(spotlightAdminPath(id, fileError));
+  if (slot === "photo" && spotlight.photos.length >= spotlightMaxPhotos) redirect(spotlightAdminPath(id, "photo-limit"));
+
+  const image = file as File;
+  const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `spotlights/${id}/${crypto.randomUUID()}.${extension}`;
+  const upload = await storageRequest(path, { method: "POST", headers: { "Content-Type": image.type, "x-upsert": "false" }, body: await image.arrayBuffer() });
+  if (!upload.ok) throw new Error(await upload.text());
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${marketPhotosBucket}/${path}`;
+
+  if (slot === "hero") {
+    await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody({ hero_image_url: url, hero_image_alt: alt }, "PATCH"));
+    const oldPath = spotlight.hero_image_url ? storagePathFromUrl(spotlight.hero_image_url) : null;
+    if (oldPath) await storageRequest(oldPath, { method: "DELETE" });
+  } else {
+    const photos: SpotlightPhoto[] = [...spotlight.photos, { url, alt, caption: text(formData.get("caption")) }];
+    await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody({ photos }, "PATCH"));
+  }
+
+  revalidateSpotlights(spotlight.slug);
+  redirect(spotlightAdminPath(id));
+}
+
+// Saves alt text and caption for the hero (index "hero") or one photo, or removes it when remove=yes.
+export async function updateSpotlightImage(formData: FormData) {
+  await requireAdmin();
+  const id = requiredText(formData, "id");
+  const target = requiredText(formData, "target");
+  const remove = formData.get("remove") === "yes";
+  const moveBy = Number(formData.get("move") ?? 0);
+  const alt = text(formData.get("alt"));
+  const spotlight = await getSpotlightRow(id);
+  if (!remove && !moveBy && !alt) redirect(spotlightAdminPath(id, "alt"));
+
+  let removedUrl: string | null = null;
+  if (target === "hero") {
+    // A published spotlight can lose its hero image; the page then shows without one.
+    removedUrl = remove ? spotlight.hero_image_url : null;
+    await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody(remove ? { hero_image_url: null, hero_image_alt: null } : { hero_image_alt: alt }, "PATCH"));
+  } else {
+    const index = Number(target);
+    const photo = spotlight.photos[index];
+    if (!Number.isInteger(index) || !photo) throw new Error("Photo not found");
+    const photos = [...spotlight.photos];
+    if (remove) {
+      removedUrl = photo.url;
+      photos.splice(index, 1);
+    } else if (moveBy) {
+      const to = index + moveBy;
+      if (to < 0 || to >= photos.length) redirect(spotlightAdminPath(id));
+      [photos[index], photos[to]] = [photos[to], photos[index]];
+    } else {
+      photos[index] = { ...photo, alt: alt!, caption: text(formData.get("caption")) };
+    }
+    await request(`spotlights?id=eq.${encodeURIComponent(id)}`, jsonBody({ photos }, "PATCH"));
+  }
+
+  const path = removedUrl ? storagePathFromUrl(removedUrl) : null;
+  if (path) await storageRequest(path, { method: "DELETE" });
+  revalidateSpotlights(spotlight.slug);
+  redirect(spotlightAdminPath(id));
 }
 
 function linkPayload(formData: FormData) {
