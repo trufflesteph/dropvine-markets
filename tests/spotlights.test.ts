@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  carouselCounter, carouselMode, classifyVideoUrl, formatAppearanceDates, isValidSlug, lastCarouselIndex, parseBody,
-  slugify, stepCarousel, upcomingAppearances,
+  carouselCounter, carouselMode, classifyVideoUrl, formatAppearanceDates, isValidSlug, lastCarouselIndex, marketSpotlightDisplay,
+  marketSpotlights, parseBody, slugify, spotlightSlugByVendor, stepCarousel, upcomingAppearances,
 } from "../src/lib/spotlights.ts";
 
 test("slugs come from the title: lowercase, hyphenated, accents folded, & spelled out", () => {
@@ -124,6 +124,32 @@ test("'Find them at' lists only markets with upcoming, uncanceled dates, soonest
   assert.deepEqual(appearances.map((appearance) => appearance.slug), ["soon", "holiday"]);
   assert.deepEqual(appearances[0].dates, ["2026-11-01"], "past dates are dropped, today counts");
   assert.deepEqual(appearances[1].booths, ["14", "12"]);
+});
+
+const card = (id: string, vendor_id: string | null) => ({ id, slug: `spotlight-${id}`, vendor_id });
+
+test("a market shows only spotlights whose vendor is linked to it, in the order given, once each", () => {
+  const spotlights = [card("1", "v-here"), card("2", "v-elsewhere"), card("3", null), card("4", "v-also-here"), card("1", "v-here"), card("5", "v-here")];
+  assert.deepEqual(marketSpotlights(spotlights, ["v-here", "v-also-here"]).map((spotlight) => spotlight.id), ["1", "4", "5"]);
+  assert.deepEqual(marketSpotlights(spotlights, []), [], "a market with no linked vendors shows none");
+  assert.deepEqual(marketSpotlights(spotlights, new Set(["v-nobody"])), []);
+});
+
+test("market spotlights: none hides the section, 1 to 3 show all, 4 or more show 3 plus See all", () => {
+  assert.deepEqual(marketSpotlightDisplay([]), { visible: false, shown: [], seeAll: false });
+  for (const count of [1, 2, 3]) {
+    const list = Array.from({ length: count }, (_, index) => card(String(index), "v"));
+    assert.deepEqual(marketSpotlightDisplay(list), { visible: true, shown: list, seeAll: false }, `${count}`);
+  }
+  const many = Array.from({ length: 5 }, (_, index) => card(String(index), "v"));
+  const display = marketSpotlightDisplay(many);
+  assert.deepEqual(display.shown.map((spotlight) => spotlight.id), ["0", "1", "2"]);
+  assert.equal(display.seeAll, true);
+  assert.equal(marketSpotlightDisplay(many.slice(0, 4)).seeAll, true);
+});
+
+test("each vendor's badge links to their first spotlight", () => {
+  assert.deepEqual(spotlightSlugByVendor([card("1", "v1"), card("2", "v1"), card("3", "v2"), card("4", null)]), { v1: "spotlight-1", v2: "spotlight-3" });
 });
 
 test("appearance dates group consecutive days into ranges", () => {

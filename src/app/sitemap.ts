@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { unstable_rethrow } from "next/navigation";
 
 import { siteUrl } from "@/lib/site-url";
 import { buildSitemap, type SitemapMarket, type SitemapSpotlight, type SitemapVendor, staticSitemap } from "@/lib/sitemap";
@@ -14,6 +15,7 @@ async function fetchSpotlights(): Promise<SitemapSpotlight[]> {
     if (!response.ok) throw new Error(`Supabase responded ${response.status} (spotlights)`);
     return (await response.json()) as SitemapSpotlight[];
   } catch (error) {
+    unstable_rethrow(error);
     console.error("[sitemap] Could not load spotlights; leaving them out.", error);
     return [];
   }

@@ -168,6 +168,36 @@ export function formatAppearanceDates(dates: string[], maxRanges = 3) {
   return runs.length > maxRanges ? `${shown} and more` : shown;
 }
 
+// Market page: published spotlights whose vendor is linked to this market, in the given (published) order, without
+// repeats. Spotlights with no vendor or a vendor at another market never count.
+export function marketSpotlights<Card extends { id: string; vendor_id: string | null }>(spotlights: Card[], linkedVendorIds: Iterable<string>) {
+  const linked = new Set(linkedVendorIds);
+  const seen = new Set<string>();
+  return spotlights.filter((spotlight) => {
+    if (!spotlight.vendor_id || !linked.has(spotlight.vendor_id) || seen.has(spotlight.id)) return false;
+    seen.add(spotlight.id);
+    return true;
+  });
+}
+
+export const marketSpotlightLimit = 3;
+
+// None: no section. 1–3: all of them in a row. 4 or more: the first three plus "See all spotlights".
+export function marketSpotlightDisplay<Card>(spotlights: Card[]) {
+  return {
+    visible: spotlights.length > 0,
+    shown: spotlights.slice(0, marketSpotlightLimit),
+    seeAll: spotlights.length > marketSpotlightLimit,
+  };
+}
+
+// vendor id → slug of that vendor's first spotlight in the list, for the badge on vendor cards and map pins.
+export function spotlightSlugByVendor(spotlights: { slug: string; vendor_id: string | null }[]) {
+  const slugs: Record<string, string> = {};
+  for (const spotlight of spotlights) if (spotlight.vendor_id) slugs[spotlight.vendor_id] ??= spotlight.slug;
+  return slugs;
+}
+
 // Homepage section: hidden with none, a plain row of up to three cards, a carousel from four.
 export type CarouselMode = "hidden" | "row" | "carousel";
 

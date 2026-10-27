@@ -1,5 +1,7 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { todayInLosAngeles } from "./market-format.ts";
-import { type AppearanceLink, type SpotlightLink, type SpotlightPhoto, type SpotlightStatus, upcomingAppearances } from "./spotlights.ts";
+import { type AppearanceLink, marketSpotlights, type SpotlightLink, type SpotlightPhoto, type SpotlightStatus, upcomingAppearances } from "./spotlights.ts";
 import { supabaseAdminFetch } from "./supabase-admin.ts";
 import { supabasePublicFetch } from "./supabase-public.ts";
 
@@ -40,6 +42,9 @@ async function publicJson<T>(path: string, fallback: T, options: { revalidate?: 
     if (!response.ok) throw new Error(`Supabase responded ${response.status}: ${await response.text()}`);
     return (await response.json()) as T;
   } catch (error) {
+    // Let Next's own control-flow errors through (e.g. the one that switches a route to dynamic rendering);
+    // swallowing them could freeze a page at build time with no spotlights.
+    unstable_rethrow(error);
     console.error(`[spotlights] Could not load ${path.split("?")[0]}:`, error);
     return fallback;
   }
@@ -77,14 +82,15 @@ export async function getVendorAppearances(vendorId: string) {
   return upcomingAppearances(links, todayInLosAngeles());
 }
 
-// vendor_id → spotlight slug, for the "Read their spotlight" links on a market page.
-export async function spotlightSlugsForVendors(vendorIds: string[]): Promise<Record<string, string>> {
-  if (!vendorIds.length) return {};
-  const rows = await publicJson<{ slug: string; vendor_id: string }[]>(
-    `spotlights?status=eq.published&vendor_id=in.(${vendorIds.map(encodeURIComponent).join(",")})&select=slug,vendor_id&${publicOrder}`,
+export type VendorSpotlightCard = SpotlightCard & { vendor_id: string | null };
+
+// Published spotlights for a market's vendors, in public order. The query already limits to these vendors;
+// marketSpotlights re-checks it so a spotlight for a vendor at another market can never slip through.
+export async function fetchMarketSpotlights(linkedVendorIds: string[]) {
+  if (!linkedVendorIds.length) return [];
+  const rows = await publicJson<VendorSpotlightCard[]>(
+    `spotlights?status=eq.published&vendor_id=in.(${linkedVendorIds.map(encodeURIComponent).join(",")})&select=${cardFields},vendor_id&${publicOrder}`,
     [],
   );
-  const slugs: Record<string, string> = {};
-  for (const row of rows) slugs[row.vendor_id] ??= row.slug;
-  return slugs;
+  return marketSpotlights(rows, linkedVendorIds);
 }
