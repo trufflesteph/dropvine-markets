@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
       pathname: "/**",
     }] : [],
   },
+  experimental: {
+    // Admin image uploads go through server actions, which accept 1 MB by default. Spotlight images are capped
+    // at 4 MB (under Vercel's 4.5 MB request limit); the extra room covers the multipart overhead.
+    serverActions: { bodySizeLimit: "5mb" },
+  },
 };
 
 export default nextConfig;

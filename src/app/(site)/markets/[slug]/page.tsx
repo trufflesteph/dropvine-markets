@@ -6,9 +6,12 @@ import { compareByBooths } from "@/lib/booths";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { todayInLosAngeles } from "@/lib/market-format";
 import { absoluteUrl } from "@/lib/site-url";
+import { spotlightSlugByVendor } from "@/lib/spotlights";
+import { fetchMarketSpotlights } from "@/lib/spotlights-data";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketDetail, { type MarketVendor } from "./market-detail";
 import MarketPhotoCarousel from "./market-photo-carousel";
+import MarketSpotlights from "./market-spotlights";
 
 type Market = {
   id: string;
@@ -115,6 +118,8 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
   if (!market) notFound();
 
   const { dates, vendors, photos } = await getMarketContent(market.id);
+  // Only vendors linked to this market (and visible to the public) can contribute a spotlight.
+  const spotlights = await fetchMarketSpotlights(vendors.map((link) => link.vendor.id));
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-8 sm:py-14">
@@ -135,6 +140,8 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
 
         {market.description ? <section className="mt-16 max-w-3xl"><p className="text-xl leading-relaxed sm:text-2xl">{market.description}</p></section> : null}
 
+        <MarketSpotlights spotlights={spotlights} />
+
         <section aria-labelledby="upcoming-dates-heading" className="mt-20 border-t border-black/10 pt-10">
           <p className="text-xs uppercase tracking-[0.18em] text-black/45">Plan your visit</p>
           <h2 id="upcoming-dates-heading" className="mt-2 font-serif text-3xl">Upcoming dates</h2>
@@ -149,7 +156,7 @@ export default async function MarketPage({ params }: PageProps<"/markets/[slug]"
           ) : <p className="mt-6 border border-black/10 px-5 py-8 text-sm text-black/55">No upcoming dates scheduled</p>}
         </section>
 
-        <MarketDetail mapImageUrl={market.map_image_url} latitude={market.latitude} longitude={market.longitude} vendors={vendors} />
+        <MarketDetail mapImageUrl={market.map_image_url} latitude={market.latitude} longitude={market.longitude} vendors={vendors} spotlightSlugs={spotlightSlugByVendor(spotlights)} />
       </article>
     </main>
   );

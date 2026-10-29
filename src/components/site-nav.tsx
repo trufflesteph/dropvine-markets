@@ -5,18 +5,20 @@ import { usePathname } from "next/navigation";
 
 import { focusRingClass } from "./styles";
 
+const spotlightsLink = { href: "/spotlights", label: "Spotlights" };
 const links = [
   { href: "/about", label: "About" },
   { href: "https://dropvine.pro", label: "For makers" },
 ];
 
-export default function SiteNav() {
+// The Spotlights link only shows while at least one spotlight is published.
+export default function SiteNav({ showSpotlights = false }: { showSpotlights?: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Main" className="hidden items-center gap-8 sm:flex">
-      {links.map((link) => {
-        const current = pathname === link.href;
+      {(showSpotlights ? [spotlightsLink, ...links] : links).map((link) => {
+        const current = pathname === link.href || (link.href.startsWith("/") && pathname.startsWith(`${link.href}/`));
         return (
           <Link
             key={link.href}

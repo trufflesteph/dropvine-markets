@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 
+import SpotlightsSection from "@/components/spotlights-section";
 import StallPlaceholder from "@/components/stall-placeholder";
 import { focusRingClass, primaryButtonClass } from "@/components/styles";
 import { categoryGroupsFor, parseCategoryParam } from "@/lib/category-groups";
 import { defaultShareImage, isImageUrl, marketImageUrl } from "@/lib/image-url";
 import { absoluteUrl } from "@/lib/site-url";
 import { currentRun, formatDateRange, formatPlace, todayInLosAngeles } from "@/lib/market-format";
+import { fetchPublishedSpotlightCards } from "@/lib/spotlights-data";
 import { supabasePublicFetch } from "@/lib/supabase-public";
 import MarketGrid, { type GridMarket } from "./market-grid";
 
@@ -128,7 +130,7 @@ function findNextUp(markets: GridMarket[]) {
 }
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const [markets, { category }] = await Promise.all([fetchPublishedMarkets(), searchParams]);
+  const [markets, spotlights, { category }] = await Promise.all([fetchPublishedMarkets(), fetchPublishedSpotlightCards(), searchParams]);
   const nextUp = findNextUp(markets);
 
   return (
@@ -175,6 +177,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </div>
         </div>
       </section>
+
+      {/* Hidden when nothing is published; reusable for the homepage redesign. */}
+      <SpotlightsSection spotlights={spotlights} />
 
       {/* Renders the "Shop by category" band and the Upcoming markets section, which share filter state. */}
       <MarketGrid markets={markets} initialCategories={parseCategoryParam(category)} />

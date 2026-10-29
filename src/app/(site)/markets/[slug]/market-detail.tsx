@@ -27,13 +27,24 @@ type MarketDetailProps = {
   latitude: number | null;
   longitude: number | null;
   vendors: MarketVendor[];
+  /** vendor id → slug of their published spotlight, when they have one. */
+  spotlightSlugs?: Record<string, string>;
 };
 
 function vendorHref(vendor: MarketVendor["vendor"]) {
   return vendor.dropvine_direct_url ?? `/vendors/${vendor.slug}`;
 }
 
-export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors }: MarketDetailProps) {
+// Navy on white text (well over 4.5:1) with a star, so it reads without relying on color.
+function SpotlightTag() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-xs leading-none font-bold tracking-[0.6px] text-white uppercase">
+      <span aria-hidden="true">★</span> Spotlight
+    </span>
+  );
+}
+
+export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors, spotlightSlugs = {} }: MarketDetailProps) {
   const [activeVendorId, setActiveVendorId] = useState<string | null>(null);
   const vendorRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -51,6 +62,7 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
     ? categoryGroupsFor(vendors.filter((link) => link.map_x !== null && link.map_y !== null).map((link) => link.vendor.category))
     : [];
   const legendGroups = categoryGroups.filter((group) => pinnedGroupSlugs.includes(group.slug));
+  const hasSpotlightPin = Boolean(mapImageUrl) && vendors.some((link) => link.map_x !== null && link.map_y !== null && spotlightSlugs[link.vendor.id]);
 
   const hasCoordinates = latitude !== null && longitude !== null;
   const mapUrl = hasCoordinates
@@ -75,14 +87,18 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
               <button
                 key={link.id}
                 type="button"
-                aria-label={[`Find vendor ${index + 1}`, link.vendor.business_name, link.vendor.category, formatBooths(link.booth_label)].filter(Boolean).join(", ")}
+                aria-label={[`Find vendor ${index + 1}`, link.vendor.business_name, link.vendor.category, formatBooths(link.booth_label), spotlightSlugs[link.vendor.id] ? "has a spotlight" : ""].filter(Boolean).join(", ")}
                 aria-pressed={activeVendorId === link.vendor.id}
                 className={`group absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center border-0 bg-transparent p-0 text-xs font-bold shadow-none transition-all sm:h-7 sm:w-7 ${activeVendorId === link.vendor.id ? "z-10 sm:h-9 sm:w-9" : "hover:z-10"}`}
                 style={{ left: `${link.map_x}%`, top: `${link.map_y}%` }}
                 onClick={() => selectVendor(link.vendor.id, true)}
               >
-                <span className={`flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={categoryPinColors(link.vendor.category)}>
+                <span className={`relative flex items-center justify-center border-2 border-white text-xs font-bold shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-all ${activeVendorId === link.vendor.id ? "h-9 w-9 ring-4 ring-black/20" : "h-7 w-7 group-hover:h-8 group-hover:w-8"}`} style={categoryPinColors(link.vendor.category)}>
                   {index + 1}
+                  {/* Spotlight marker: a star badge on the pin's corner, a shape cue rather than a color one. */}
+                  {spotlightSlugs[link.vendor.id] ? (
+                    <span aria-hidden="true" className="absolute -top-2 -right-2 flex size-4 items-center justify-center rounded-full border border-white bg-navy text-[9px] leading-none text-white">★</span>
+                  ) : null}
                 </span>
                 <span aria-hidden="true" className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#0E0E0C] px-2 py-1 font-sans text-xs font-normal text-[#FAFAF7] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   {link.vendor.business_name}
@@ -115,6 +131,12 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   {group.label}
                 </li>
               ))}
+              {hasSpotlightPin ? (
+                <li className="flex items-center gap-2 text-sm text-navy">
+                  <span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center rounded-full bg-navy text-[9px] leading-none text-white">★</span>
+                  Has a spotlight
+                </li>
+              ) : null}
             </ul>
           </div>
         ) : null}
@@ -159,6 +181,16 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   </div>
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold" style={color}>{index + 1}</span>
                 </a>
+                {spotlightSlugs[link.vendor.id] ? (
+                  <a
+                    href={`/spotlights/${spotlightSlugs[link.vendor.id]}`}
+                    aria-label={`Read ${link.vendor.business_name}’s spotlight`}
+                    className="flex min-h-11 items-center gap-3 border border-t-0 border-black/10 bg-cream px-3 py-2 text-[15px] font-bold text-clay-dark transition-colors hover:border-black/35 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                  >
+                    <SpotlightTag />
+                    <span>Read their spotlight <span aria-hidden="true">→</span></span>
+                  </a>
+                ) : null}
               </article>
               );
             })}
