@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { formatBooths } from "@/lib/booths";
 import { categoryGroups, categoryGroupsFor, categoryPinColors } from "@/lib/category-groups";
+import { vendorThumbnail } from "@/lib/vendor-thumbnail";
 
 export type MarketVendor = {
   id: string;
@@ -40,6 +41,37 @@ function SpotlightTag() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-navy px-2.5 py-1 text-xs leading-none font-bold tracking-[0.6px] text-white uppercase">
       <span aria-hidden="true">★</span> Spotlight
+    </span>
+  );
+}
+
+// 64px photo, or an initial tile of the same size when there is no photo or it fails to load. The business name
+// sits right beside it, so the photo takes empty alt text and the tile is hidden from screen readers.
+function VendorThumbnail({ vendor }: { vendor: MarketVendor["vendor"] }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const thumbnail = vendorThumbnail(vendor, failedSrc !== null && failedSrc === vendor.photo_url);
+  const tileClass = "size-16 shrink-0 rounded-md";
+
+  if (thumbnail.kind === "photo") {
+    return (
+      <Image
+        src={thumbnail.src}
+        alt=""
+        width={64}
+        height={64}
+        sizes="64px"
+        loading="lazy"
+        className={`${tileClass} bg-[#F2F0EA] object-cover`}
+        onError={() => setFailedSrc(vendor.photo_url)}
+        // Catches a load that failed before hydration, when onError wasn't attached yet.
+        ref={(img) => { if (img?.complete && img.naturalWidth === 0) setFailedSrc(vendor.photo_url); }}
+      />
+    );
+  }
+
+  return (
+    <span aria-hidden="true" className={`${tileClass} flex items-center justify-center font-serif text-2xl leading-none`} style={{ backgroundColor: thumbnail.backgroundColor, color: thumbnail.color }}>
+      {thumbnail.initial}
     </span>
   );
 }
@@ -168,14 +200,11 @@ export default function MarketDetail({ mapImageUrl, latitude, longitude, vendors
                   target={link.vendor.dropvine_direct_url ? "_blank" : undefined}
                   rel={link.vendor.dropvine_direct_url ? "noopener noreferrer" : undefined}
                   onClick={() => selectVendor(link.vendor.id)}
-                  className="flex min-h-28 min-w-0 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
+                  className="flex min-h-24 min-w-0 items-center gap-4 border border-black/10 p-3 transition-colors hover:border-black/35"
                 >
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-[#F2F0EA]">
-                    {link.vendor.photo_url ? <Image src={link.vendor.photo_url} alt="" fill sizes="96px" className="object-cover" /> : null}
-                    {!link.vendor.photo_url ? <span className="flex h-full items-center justify-center px-2 text-center font-serif text-sm text-black/35">Dropvine</span> : null}
-                  </div>
+                  <VendorThumbnail vendor={link.vendor} />
                   <div className="min-w-0 flex-1 py-1">
-                    <h3 className="font-serif text-xl leading-tight">{link.vendor.business_name}</h3>
+                    <h3 className="font-serif text-xl leading-tight break-words">{link.vendor.business_name}</h3>
                     <p className="mt-1 text-sm text-black/55">{link.vendor.category}</p>
                     {formatBooths(link.booth_label) ? <p className="mt-1 text-sm text-black/55">{formatBooths(link.booth_label)}</p> : null}
                   </div>

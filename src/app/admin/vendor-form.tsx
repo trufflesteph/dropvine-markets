@@ -46,9 +46,9 @@ export default function VendorForm({ vendor, saveAction, uploadAction }: VendorF
         Also on Dropvine Direct?
       </label>
       {direct ? <Field label="Dropvine Direct URL" name="dropvine_direct_url" defaultValue={vendor?.dropvine_direct_url} /> : <Field label="Website or Instagram URL" name="external_url" defaultValue={vendor?.external_url} />}
-      {direct ? <p className="border border-green-700/30 bg-green-50 px-3 py-2 text-sm text-green-800">This vendor links directly to Dropvine Direct. The market photo and external URL are not used.</p> : <div className="space-y-3"><p className="text-sm text-black/55">Upload a vendor photo below to replace the current image.</p><textarea className={inputClass} name="blurb" defaultValue={vendor?.blurb ?? ""} rows={3} aria-label="Blurb" /></div>}
+      {direct ? <p className="border border-green-700/30 bg-green-50 px-3 py-2 text-sm text-green-800">This vendor links directly to Dropvine Direct. The external URL is not used. The market photo is shown in the market vendor list.</p> : <div className="space-y-3"><p className="text-sm text-black/55">Upload a vendor photo below to replace the current image.</p><textarea className={inputClass} name="blurb" defaultValue={vendor?.blurb ?? ""} rows={3} aria-label="Blurb" /></div>}
       <SubmitButton className={primaryButtonClass} pendingLabel="Saving vendor...">{vendor ? "Save vendor" : "Create vendor"}</SubmitButton>
     </form>
-    {vendor && !direct ? <form action={uploadAction} className="border border-black/10 p-4"><input name="vendor_id" type="hidden" value={vendor.id} /><label className="block text-sm"><span>Photo</span><input accept="image/*" className="mt-1 block text-sm" name="photo" type="file" required /></label><SubmitButton className="mt-3 border border-black/20 px-3 py-2 text-sm" pendingLabel="Uploading photo...">Upload photo</SubmitButton></form> : null}
+    {vendor ? <form action={uploadAction} className="border border-black/10 p-4"><input name="vendor_id" type="hidden" value={vendor.id} /><label className="block text-sm"><span>Photo</span><input accept="image/*" className="mt-1 block text-sm" name="photo" type="file" required /></label><SubmitButton className="mt-3 border border-black/20 px-3 py-2 text-sm" pendingLabel="Uploading photo...">Upload photo</SubmitButton></form> : null}
   </div>;
 }

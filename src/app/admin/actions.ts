@@ -215,7 +215,7 @@ function importRowError(row: ImportRow) {
 }
 function importVendorPayload(row: ImportRow, businessName: string, slug: string) {
   const directUrl = importText(row.dropvine_direct_url);
-  return { slug, business_name: businessName, category: importText(row.category), photo_url: directUrl ? null : importText(row.photo_url), blurb: directUrl ? null : importText(row.blurb), dropvine_direct_url: directUrl, external_url: directUrl ? null : importText(row.external_url) };
+  return { slug, business_name: businessName, category: importText(row.category), photo_url: importText(row.photo_url), blurb: directUrl ? null : importText(row.blurb), dropvine_direct_url: directUrl, external_url: directUrl ? null : importText(row.external_url) };
 }
 function importExistingVendorPayload(row: ImportRow) {
   const payload: Record<string, string> = {};
@@ -399,7 +399,8 @@ function vendorPayload(formData: FormData) {
     slug: requiredText(formData, "slug"),
     business_name: requiredText(formData, "business_name"),
     category,
-    photo_url: directUrl ? null : text(formData.get("photo_url")),
+    // Kept for Dropvine Direct vendors too: the market vendor list shows it.
+    photo_url: text(formData.get("photo_url")),
     blurb: directUrl ? null : text(formData.get("blurb")),
     dropvine_direct_url: directUrl,
     external_url: directUrl ? null : text(formData.get("external_url")),
